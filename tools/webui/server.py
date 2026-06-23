@@ -31,6 +31,7 @@ state = {
     "movetime": 1000,
     "last": None,
     "sans": [],
+    "mode": "upgraded",
 }
 
 
@@ -79,6 +80,8 @@ def snapshot(extra=None):
         "result": b.result(claim_draw=True) if over else None,
         "movetime": state["movetime"],
         "history": list(state["sans"]),
+        "mode": state["mode"],
+        "netAvailable": bool(app.config.get("NET")),
     }
     if extra:
         out.update(extra)
@@ -105,6 +108,25 @@ def new_game():
         state["movetime"] = max(50, int(data.get("movetime", 1000)))
         state["last"] = None
         state["sans"] = []
+
+        # Mode selects engine config: Baseline (1 thread, HCE), Upgraded (SMP,
+        # HCE), Maxxed (SMP + NNUE).
+        mode = data.get("mode", "upgraded")
+        net = app.config.get("NET")
+        threads = app.config.get("THREADS", 4)
+        if mode == "baseline":
+            cfg = {"Threads": 1, "EvalFile": "<empty>"}
+        elif mode == "maxxed" and net:
+            cfg = {"Threads": threads, "EvalFile": net}
+        else:
+            mode = "upgraded"
+            cfg = {"Threads": threads, "EvalFile": "<empty>"}
+        try:
+            engine().configure(cfg)
+        except Exception:
+            pass
+        state["mode"] = mode
+
         extra = engine_reply() if state["board"].turn != state["human"] else None
         return jsonify(snapshot(extra))
 
@@ -132,8 +154,13 @@ def human_move():
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--engine", default=str(DEFAULT_ENGINE))
+    ap.add_argument("--net", default=str(ROOT / "bin" / "ix.nnue"))
+    ap.add_argument("--threads", type=int, default=4)
     ap.add_argument("--port", type=int, default=5000)
     args = ap.parse_args()
     app.config["ENGINE_PATH"] = args.engine
-    print(f"IxEngine web UI  ->  http://127.0.0.1:{args.port}")
+    app.config["THREADS"] = args.threads
+    app.config["NET"] = args.net if Path(args.net).exists() else None
+    print(f"IxEngine web UI  ->  http://127.0.0.1:{args.port}"
+          + ("   (NNUE net found)" if app.config["NET"] else "   (no net; Maxxed = HCE)"))
     app.run(host="127.0.0.1", port=args.port, debug=False, threaded=True)

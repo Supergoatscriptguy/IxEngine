@@ -58,6 +58,8 @@
   .seg button{flex:1;background:transparent;border:0;color:var(--text);padding:7px;border-radius:6px;
               cursor:pointer;font:inherit;font-size:13px}
   .seg button.on{background:var(--accent);color:#08111f;font-weight:600}
+  select{background:#0e1117;border:1px solid var(--line);color:var(--text);border-radius:8px;
+         padding:8px;font:inherit;font-size:13px;width:100%;cursor:pointer}
   .ctl{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
   input[type=range]{flex:1;accent-color:var(--accent)}
   .go{background:var(--accent);color:#08111f;border:0;border-radius:8px;padding:11px;font:inherit;
@@ -111,6 +113,14 @@
     </div>
 
     <aside class="panel">
+      <div>
+        <h2>Engine</h2>
+        <select id="mode" style="margin-top:6px">
+          <option value="baseline">Baseline · 1 thread · hand eval</option>
+          <option value="upgraded" selected>Upgraded · SMP · hand eval</option>
+          <option value="maxxed">Maxxed · SMP · NNUE</option>
+        </select>
+      </div>
       <div>
         <h2>You play</h2>
         <div class="seg" id="color" style="margin-top:6px">
@@ -323,8 +333,9 @@ async function newGame(){
   const color=document.querySelector("#color button.on").dataset.c;
   flip=color==="black"; lastCp=0;
   const movetime=+$("mt").value;
+  const mode=$("mode").value;
   const res=await fetch("/new",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({color,movetime})});
+    body:JSON.stringify({color,movetime,mode})});
   const d=await res.json(); engEl.textContent="";
   recentUci=d.last?[d.last]:[]; apply(d,d); busy=false;
 }
