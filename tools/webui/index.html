@@ -6,259 +6,336 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Play IxEngine</title>
 <style>
-  :root {
-    --bg: #0d1117; --panel: #161b22; --line: #30363d; --text: #c9d1d9;
-    --accent: #58a6ff; --light: #b6c2cf; --dark: #6b7a8f;
-    --sel: #f6c343; --target: rgba(88,166,255,.55); --lastmv: rgba(246,195,67,.28);
+  :root{
+    --bg:#11141a; --card:#1b2027; --line:#2b323c; --text:#e6e9ee; --muted:#8b95a3;
+    --accent:#5aa9ff; --light:#ebd2a6; --dark:#9c7350;
+    --sel:#f4c95d; --move:rgba(244,201,93,.40); --hint:rgba(40,44,52,.42);
+    --board:min(80vmin,560px);
   }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font: 15px/1.5 "Fira Code", ui-monospace, Menlo, Consolas, monospace;
-    display: flex; flex-wrap: wrap; gap: 28px; justify-content: center;
-    align-items: flex-start; padding: 32px 16px;
-  }
-  h1 { font-size: 20px; margin: 0 0 2px; color: #fff; }
-  h1 span { color: var(--accent); }
-  .sub { color: #8b949e; font-size: 12px; margin-bottom: 18px; }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 50% -10%,#1c222c,#0d1014);
+       color:var(--text);font:15px/1.5 "Inter",system-ui,Segoe UI,Roboto,sans-serif;
+       min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .app{display:flex;flex-direction:column;gap:14px}
+  header h1{margin:0;font-size:24px;font-weight:700;letter-spacing:-.5px}
+  header h1 span{color:var(--accent)}
+  .tag{color:var(--muted);font-size:13px}
+  .main{display:flex;gap:16px;align-items:flex-start}
 
-  #board {
-    display: grid; grid-template-columns: repeat(8, 1fr);
-    width: min(78vw, 560px); aspect-ratio: 1 / 1;
-    border: 1px solid var(--line); border-radius: 6px; overflow: hidden;
-    user-select: none;
-  }
-  .sq { position: relative; display: flex; align-items: center; justify-content: center;
-        font-size: min(9vw, 64px); line-height: 1; cursor: pointer; }
-  .sq.light { background: #2b333d; }
-  .sq.dark  { background: #1c2128; }
-  .sq.sel   { box-shadow: inset 0 0 0 3px var(--sel); }
-  .sq.last  { background-image: linear-gradient(var(--lastmv), var(--lastmv)); }
-  .sq .dot  { position: absolute; width: 26%; height: 26%; border-radius: 50%;
-              background: var(--target); pointer-events: none; }
-  .sq.cap .dot { width: 86%; height: 86%; background: transparent;
-                 border: 4px solid var(--target); }
-  .piece.w { color: #f5f7fa; text-shadow: 0 1px 2px #000, 0 0 1px #000; }
-  .piece.b { color: #20262e; text-shadow: 0 1px 1px #aeb6bf; }
-  .coord { position: absolute; font-size: 10px; color: #8b949e; opacity: .8; }
-  .coord.f { right: 3px; bottom: 1px; } .coord.r { left: 3px; top: 1px; }
+  .evalbar{position:relative;width:14px;height:var(--board);border-radius:7px;overflow:hidden;
+           background:#0c0e12;border:1px solid var(--line);flex:none}
+  .evalbar .fill{position:absolute;left:0;right:0;bottom:0;height:50%;background:#eef1f5;
+                 transition:height .35s ease}
+  .evalbar span{position:absolute;left:50%;transform:translateX(-50%);font-size:9px;font-weight:700;
+                bottom:3px;color:#11141a;mix-blend-mode:difference}
 
-  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
-           padding: 18px 20px; width: 300px; }
-  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em;
-              color: #8b949e; margin: 0 0 10px; }
-  .row { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
-  label { font-size: 13px; }
-  button { background: var(--accent); color: #0d1117; border: 0; border-radius: 6px;
-           padding: 9px 14px; font: inherit; font-weight: 600; cursor: pointer; width: 100%; }
-  button:hover { filter: brightness(1.08); }
-  .seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
-  .seg button { background: transparent; color: var(--text); font-weight: 400; border-radius: 0; }
-  .seg button.on { background: var(--accent); color: #0d1117; font-weight: 600; }
-  input[type=range] { flex: 1; accent-color: var(--accent); }
-  #status { min-height: 44px; font-size: 14px; }
-  #status b { color: #fff; }
-  .eval { font-size: 13px; color: #8b949e; }
-  .foot { color: #6e7681; font-size: 11px; margin-top: 16px; }
+  .board-wrap{position:relative;width:var(--board);height:var(--board)}
+  #board{width:100%;height:100%;display:grid;grid-template:repeat(8,1fr)/repeat(8,1fr);
+         border-radius:8px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.45);user-select:none}
+  #arrows{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5}
+  .sq{position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer;
+      font-size:calc(var(--board)/8*.80);line-height:1}
+  .sq.l{background:var(--light)} .sq.d{background:var(--dark)}
+  .sq.sel::after{content:"";position:absolute;inset:0;background:var(--sel);opacity:.45}
+  .sq.move::after{content:"";position:absolute;inset:0;background:var(--move)}
+  .sq.chk::before{content:"";position:absolute;inset:14%;border-radius:50%;
+                  background:radial-gradient(circle,rgba(229,72,72,.9),rgba(229,72,72,0) 70%)}
+  .piece{position:relative;z-index:2;pointer-events:none}
+  .piece.w{color:#fbfbfb;-webkit-text-stroke:calc(var(--board)/700) #2a2a2a;
+           filter:drop-shadow(0 2px 1px rgba(0,0,0,.35))}
+  .piece.b{color:#33373d;-webkit-text-stroke:calc(var(--board)/900) #0a0a0a;
+           filter:drop-shadow(0 2px 1px rgba(0,0,0,.3))}
+  .dot{position:absolute;z-index:1;width:30%;height:30%;border-radius:50%;background:var(--hint)}
+  .sq.cap .dot{width:90%;height:90%;background:transparent;border:6px solid var(--hint)}
+  .coord{position:absolute;font-size:10px;font-weight:700;z-index:3;opacity:.85}
+  .coord.f{right:4px;bottom:2px} .coord.r{left:4px;top:2px}
+  .on-l{color:var(--dark)} .on-d{color:var(--light)}
 
-  #promo { position: fixed; inset: 0; background: rgba(0,0,0,.5);
-           display: none; align-items: center; justify-content: center; }
-  #promo .box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-                padding: 16px; display: flex; gap: 10px; }
-  #promo .box div { font-size: 46px; cursor: pointer; padding: 4px 10px; border-radius: 8px;
-                    color: #f5f7fa; text-shadow: 0 1px 2px #000; }
-  #promo .box div:hover { background: var(--accent); color: #0d1117; text-shadow: none; }
+  .panel{width:256px;background:var(--card);border:1px solid var(--line);border-radius:12px;
+         padding:16px;display:flex;flex-direction:column;gap:14px}
+  .panel h2{margin:0;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+  .seg{display:flex;background:#0e1117;border:1px solid var(--line);border-radius:8px;padding:3px}
+  .seg button{flex:1;background:transparent;border:0;color:var(--text);padding:7px;border-radius:6px;
+              cursor:pointer;font:inherit;font-size:13px}
+  .seg button.on{background:var(--accent);color:#08111f;font-weight:600}
+  .ctl{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+  input[type=range]{flex:1;accent-color:var(--accent)}
+  .go{background:var(--accent);color:#08111f;border:0;border-radius:8px;padding:11px;font:inherit;
+      font-weight:700;cursor:pointer}
+  .go:hover{filter:brightness(1.07)}
+  #status{font-size:14px;min-height:22px} #status b{color:#fff}
+  #engmove{font-size:12.5px;color:var(--muted);min-height:18px}
+
+  /* score / captured */
+  .score{display:flex;flex-direction:column;gap:6px}
+  .scorerow{display:flex;align-items:center;gap:8px;font-size:19px;min-height:26px;letter-spacing:-3px}
+  .scorerow .pts{margin-left:auto;font:600 13px/1 "Inter",sans-serif;letter-spacing:0;
+                 padding:2px 7px;border-radius:20px;background:#0e1117;color:var(--muted);border:1px solid var(--line)}
+  .scorerow .pts.up{background:var(--accent);color:#08111f;border-color:transparent}
+  .cw{color:#fbfbfb} .cb{color:#33373d}
+
+  /* move list */
+  .moves{max-height:168px;overflow:auto;background:#0e1117;border:1px solid var(--line);
+         border-radius:8px;padding:4px}
+  .mvrow{display:grid;grid-template-columns:30px 1fr 1fr;align-items:center;
+         font:13px/1.9 ui-monospace,Consolas,monospace;border-radius:5px}
+  .mvrow:nth-child(odd){background:rgba(255,255,255,.025)}
+  .mvrow .n{color:var(--muted);text-align:right;padding-right:8px}
+  .mvrow .san{padding:0 6px;color:#d6dde6;cursor:default}
+  .mvrow .san.last{background:var(--move);color:#fff;border-radius:4px;font-weight:600}
+  .moves .empty{color:var(--muted);font-size:12px;padding:8px;text-align:center}
+
+  footer{color:#5b6573;font-size:11px;text-align:center}
+
+  #promo{position:fixed;inset:0;background:rgba(6,8,12,.6);display:none;align-items:center;
+         justify-content:center;z-index:9}
+  #promo .box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;
+              display:flex;gap:8px}
+  #promo .box div{font-size:46px;width:64px;height:64px;display:flex;align-items:center;
+                  justify-content:center;border-radius:10px;cursor:pointer;background:#0e1117}
+  #promo .box div:hover{background:var(--accent)}
 </style>
 </head>
 <body>
-  <div>
+<div class="app">
+  <header>
     <h1>Ix<span>Engine</span></h1>
-    <div class="sub">a classical C++ chess engine</div>
-    <div id="board"></div>
-    <div class="foot">♟ Board UI generated with AI · engine plays via UCI</div>
-  </div>
+    <div class="tag">classical C++ chess engine · ~2800 Elo vs Stockfish (blitz)</div>
+  </header>
 
-  <div class="panel">
-    <h2>Game</h2>
-    <div class="row">
-      <label>You play</label>
-      <div class="seg" id="color">
-        <button data-c="white" class="on">White</button>
-        <button data-c="black">Black</button>
+  <div class="main">
+    <div class="evalbar"><div class="fill" id="evalfill"></div><span id="evalnum"></span></div>
+    <div class="board-wrap">
+      <div id="board"></div>
+      <svg id="arrows" viewBox="0 0 8 8" preserveAspectRatio="none"></svg>
+    </div>
+
+    <aside class="panel">
+      <div>
+        <h2>You play</h2>
+        <div class="seg" id="color" style="margin-top:6px">
+          <button data-c="white" class="on">White</button>
+          <button data-c="black">Black</button>
+        </div>
       </div>
-    </div>
-    <div class="row">
-      <label>Think</label>
-      <input id="mt" type="range" min="100" max="5000" step="100" value="1000" />
-      <span id="mtv" style="width:54px;text-align:right">1.0s</span>
-    </div>
-    <div class="row"><button id="newbtn">New game</button></div>
-    <h2 style="margin-top:18px">Status</h2>
-    <div id="status">Loading…</div>
-    <div class="eval" id="eval"></div>
+      <div class="ctl">Think<input id="mt" type="range" min="100" max="5000" step="100" value="1000"><span id="mtv" style="width:42px;text-align:right;color:var(--text)">1.0s</span></div>
+      <button class="go" id="newbtn">New game</button>
+
+      <div>
+        <h2>Material</h2>
+        <div class="score" style="margin-top:6px">
+          <div class="scorerow"><span class="cw" id="capW"></span><span class="pts" id="ptsW">0</span></div>
+          <div class="scorerow"><span class="cb" id="capB"></span><span class="pts" id="ptsB">0</span></div>
+        </div>
+      </div>
+
+      <div>
+        <h2>Status</h2>
+        <div id="status" style="margin-top:6px">Loading…</div>
+        <div id="engmove"></div>
+      </div>
+
+      <div>
+        <h2>Moves</h2>
+        <div class="moves" id="moves" style="margin-top:6px"></div>
+      </div>
+    </aside>
   </div>
 
-  <div id="promo"><div class="box"></div></div>
+  <footer>♟ Board UI generated with AI · engine plays via UCI</footer>
+</div>
+
+<div id="promo"><div class="box"></div></div>
 
 <script>
-const GLYPH = { P:"♙",N:"♘",B:"♗",R:"♖",Q:"♕",K:"♔", p:"♟",n:"♞",b:"♝",r:"♜",q:"♛",k:"♚" };
-const FILES = "abcdefgh";
-let st = null, sel = null, busy = false, flip = false;
+const NS="http://www.w3.org/2000/svg";
+const SOLID={p:"♟",n:"♞",b:"♝",r:"♜",q:"♛",k:"♚"};
+const VAL={p:1,n:3,b:3,r:5,q:9};
+const START={p:8,n:2,b:2,r:2,q:1};
+const FILES="abcdefgh";
+let st=null, sel=null, busy=false, flip=false, lastCp=0, recentUci=[];
 
-const boardEl  = document.getElementById("board");
-const statusEl = document.getElementById("status");
-const evalEl   = document.getElementById("eval");
+const $=id=>document.getElementById(id);
+const boardEl=$("board"), statusEl=$("status"), engEl=$("engmove");
 
-function piecesFromFen(fen) {
-  const rows = fen.split(" ")[0].split("/");
-  const map = {};
-  for (let r = 0; r < 8; r++) {
-    let file = 0;
-    for (const ch of rows[r]) {
-      if (ch >= "1" && ch <= "8") { file += +ch; continue; }
-      map[FILES[file] + (8 - r)] = ch;
-      file++;
-    }
-  }
+function piecesFromFen(fen){
+  const rows=fen.split(" ")[0].split("/"); const map={};
+  for(let r=0;r<8;r++){ let f=0; for(const ch of rows[r]){
+    if(ch>="1"&&ch<="8"){f+=+ch;continue;} map[FILES[f]+(8-r)]=ch; f++; } }
   return map;
 }
+const targets=from=>st.legal.filter(m=>m.slice(0,2)===from).map(m=>m.slice(2,4));
 
-function legalTargets(from) {
-  return st.legal.filter(m => m.slice(0,2) === from).map(m => m.slice(2,4));
+function sqCenter(sq){
+  const f=FILES.indexOf(sq[0]), r=+sq[1];
+  const col=flip?7-f:f, row=flip?r-1:8-r;
+  return [col+0.5,row+0.5];
 }
 
-function render() {
-  const pieces = piecesFromFen(st.fen);
-  const ranks = flip ? [1,2,3,4,5,6,7,8] : [8,7,6,5,4,3,2,1];
-  const files = flip ? [7,6,5,4,3,2,1,0] : [0,1,2,3,4,5,6,7];
-  const targets = sel ? new Set(legalTargets(sel)) : new Set();
-  const lastSqs = st.last ? [st.last.slice(0,2), st.last.slice(2,4)] : [];
-
-  boardEl.innerHTML = "";
-  for (const rank of ranks) {
-    for (const f of files) {
-      const sq = FILES[f] + rank;
-      const cell = document.createElement("div");
-      const dark = (f + rank) % 2 === 0;
-      cell.className = "sq " + (dark ? "dark" : "light");
-      if (sq === sel) cell.classList.add("sel");
-      if (lastSqs.includes(sq)) cell.classList.add("last");
-
-      const p = pieces[sq];
-      if (p) {
-        const span = document.createElement("span");
-        span.className = "piece " + (p === p.toUpperCase() ? "w" : "b");
-        span.textContent = GLYPH[p];
-        cell.appendChild(span);
-      }
-      if (targets.has(sq)) {
-        if (p) cell.classList.add("cap");
-        const dot = document.createElement("span"); dot.className = "dot";
-        cell.appendChild(dot);
-      }
-      // edge coordinates
-      if (f === (flip ? 7 : 0)) { const c=document.createElement("span"); c.className="coord r"; c.textContent=rank; cell.appendChild(c); }
-      if (rank === (flip ? 8 : 1)) { const c=document.createElement("span"); c.className="coord f"; c.textContent=FILES[f]; cell.appendChild(c); }
-
-      cell.onclick = () => onClick(sq);
-      boardEl.appendChild(cell);
-    }
-  }
-}
-
-function setStatus(extra) {
-  if (st.over) {
-    const r = { "1-0":"White wins", "0-1":"Black wins", "1/2-1/2":"Draw" }[st.result] || st.result;
-    statusEl.innerHTML = `<b>Game over — ${r}</b>`;
-  } else {
-    const who = st.turn === st.human ? "Your move" : "IxEngine thinking…";
-    statusEl.innerHTML = `<b>${who}</b>${st.check ? " — check!" : ""}`;
-  }
-  if (extra && extra.engineSan) {
-    let e = `IxEngine played ${extra.engineSan}`;
-    if (extra.evalCp !== null && extra.evalCp !== undefined) {
-      const cp = extra.evalCp;
-      e += Math.abs(cp) >= 90000
-        ? `  ·  mate`
-        : `  ·  eval ${(cp/100>=0?"+":"")}${(cp/100).toFixed(2)} (White)`;
-    }
-    evalEl.textContent = e;
-  } else if (!st.last) {
-    evalEl.textContent = "";
-  }
-}
-
-function apply(data, extra) { st = data; sel = null; render(); setStatus(extra || data); }
-
-async function onClick(sq) {
-  if (busy || !st || st.over || st.turn !== st.human) return;
-  if (sel === null) {
-    if (legalTargets(sq).length) { sel = sq; render(); }
-    return;
-  }
-  if (sq === sel) { sel = null; render(); return; }
-  const matches = st.legal.filter(m => m.slice(0,2) === sel && m.slice(2,4) === sq);
-  if (!matches.length) {                       // reselect or clear
-    sel = legalTargets(sq).length ? sq : null;
-    render();
-    return;
-  }
-  if (matches.length > 1) { askPromo(sel, sq); return; }  // promotion
-  await sendMove(matches[0]);
-}
-
-function askPromo(from, to) {
-  const box = document.querySelector("#promo .box");
-  const white = st.human === "white";
-  box.innerHTML = "";
-  for (const pc of ["q","r","b","n"]) {
-    const d = document.createElement("div");
-    d.textContent = GLYPH[white ? pc.toUpperCase() : pc];
-    d.onclick = () => { document.getElementById("promo").style.display = "none"; sendMove(from + to + pc); };
-    box.appendChild(d);
-  }
-  document.getElementById("promo").style.display = "flex";
-}
-
-async function sendMove(uci) {
-  busy = true; sel = null;
-  statusEl.innerHTML = "<b>IxEngine thinking…</b>";
-  try {
-    const res = await fetch("/move", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ uci })
-    });
-    const data = await res.json();
-    if (!res.ok) { busy = false; render(); return; }
-    apply(data, data);
-  } catch (e) { statusEl.textContent = "connection lost"; }
-  busy = false;
-}
-
-async function newGame() {
-  busy = true;
-  const color = document.querySelector("#color button.on").dataset.c;
-  flip = color === "black";
-  const movetime = +document.getElementById("mt").value;
-  const res = await fetch("/new", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ color, movetime })
+function drawArrows(){
+  const svg=$("arrows"); svg.innerHTML="";
+  const ms=recentUci.slice(-2);
+  ms.forEach((uci,i)=>{
+    if(!uci||uci.length<4) return;
+    const [x1,y1]=sqCenter(uci.slice(0,2)), [x2,y2]=sqCenter(uci.slice(2,4));
+    const dx=x2-x1, dy=y2-y1, len=Math.hypot(dx,dy); if(!len) return;
+    const ux=dx/len, uy=dy/len, head=.34, hw=.26, ex=x2-ux*head, ey=y2-uy*head, px=-uy, py=ux;
+    const recent=i===ms.length-1;
+    const col=recent?"rgba(90,169,255,.9)":"rgba(110,190,120,.6)";
+    const line=document.createElementNS(NS,"line");
+    line.setAttribute("x1",x1);line.setAttribute("y1",y1);
+    line.setAttribute("x2",ex);line.setAttribute("y2",ey);
+    line.setAttribute("stroke",col);line.setAttribute("stroke-width",.13);
+    line.setAttribute("stroke-linecap","round");svg.appendChild(line);
+    const tri=document.createElementNS(NS,"polygon");
+    tri.setAttribute("points",`${x2},${y2} ${ex+px*hw},${ey+py*hw} ${ex-px*hw},${ey-py*hw}`);
+    tri.setAttribute("fill",col);svg.appendChild(tri);
   });
-  apply(await res.json());
-  busy = false;
 }
 
-// wiring
-document.querySelectorAll("#color button").forEach(b => b.onclick = () => {
-  document.querySelectorAll("#color button").forEach(x => x.classList.remove("on"));
-  b.classList.add("on");
-});
-const mt = document.getElementById("mt");
-mt.oninput = () => document.getElementById("mtv").textContent = (mt.value/1000).toFixed(1) + "s";
-document.getElementById("newbtn").onclick = newGame;
-document.getElementById("promo").onclick = e => { if (e.target.id === "promo") e.target.style.display = "none"; };
+function render(){
+  const pieces=piecesFromFen(st.fen);
+  const ranks=flip?[1,2,3,4,5,6,7,8]:[8,7,6,5,4,3,2,1];
+  const files=flip?[7,6,5,4,3,2,1,0]:[0,1,2,3,4,5,6,7];
+  const tg=sel?new Set(targets(sel)):new Set();
+  const last=st.last?[st.last.slice(0,2),st.last.slice(2,4)]:[];
+  let chk=null;
+  if(st.check){ const k=st.turn==="white"?"K":"k"; for(const s in pieces) if(pieces[s]===k) chk=s; }
 
-fetch("/state").then(r => r.json()).then(d => { flip = d.human === "black"; apply(d); });
+  boardEl.innerHTML="";
+  for(const rank of ranks) for(const f of files){
+    const sq=FILES[f]+rank, dark=(f+rank)%2===0;
+    const cell=document.createElement("div");
+    cell.className="sq "+(dark?"d":"l");
+    if(sq===sel) cell.classList.add("sel");
+    if(last.includes(sq)) cell.classList.add("move");
+    if(sq===chk) cell.classList.add("chk");
+    const p=pieces[sq];
+    if(p){ const s=document.createElement("span");
+      s.className="piece "+(p===p.toUpperCase()?"w":"b"); s.textContent=SOLID[p.toLowerCase()];
+      cell.appendChild(s); }
+    if(tg.has(sq)){ if(p) cell.classList.add("cap");
+      const d=document.createElement("span"); d.className="dot"; cell.appendChild(d); }
+    if(f===(flip?7:0)){ const c=document.createElement("span");
+      c.className="coord r "+(dark?"on-d":"on-l"); c.textContent=rank; cell.appendChild(c); }
+    if(rank===(flip?8:1)){ const c=document.createElement("span");
+      c.className="coord f "+(dark?"on-d":"on-l"); c.textContent=FILES[f]; cell.appendChild(c); }
+    cell.onclick=()=>onClick(sq);
+    boardEl.appendChild(cell);
+  }
+  drawArrows(); renderScore(pieces); renderMoves(); renderEval();
+}
+
+function renderEval(){
+  const cp=Math.max(-1500,Math.min(1500,lastCp));
+  const prob=1/(1+Math.pow(10,-cp/400));
+  $("evalfill").style.height=(prob*100).toFixed(1)+"%";
+  $("evalnum").textContent=Math.abs(lastCp)>=90000?"M":(lastCp>=0?"+":"")+(lastCp/100).toFixed(1);
+  $("evalnum").style.bottom=prob>0.5?"3px":"auto";
+  $("evalnum").style.top=prob>0.5?"auto":"3px";
+}
+
+function renderScore(pieces){
+  const cur={w:{},b:{}};
+  for(const s in pieces){ const p=pieces[s], side=p===p.toUpperCase()?"w":"b", t=p.toLowerCase();
+    if(t!=="k") cur[side][t]=(cur[side][t]||0)+1; }
+  // pieces a side is missing were captured by the opponent
+  const spoils=loser=>{ let g="",v=0; for(const t of ["q","r","b","n","p"]){
+    const n=START[t]-(cur[loser][t]||0); v+=n*VAL[t]; for(let i=0;i<n;i++) g+=SOLID[t]; }
+    return {g,v}; };
+  const W=spoils("b"), B=spoils("w");      // White's spoils = missing black pieces
+  $("capW").textContent=W.g; $("capB").textContent=B.g;
+  const diff=W.v-B.v;                       // net material, White's perspective
+  const ptsW=$("ptsW"), ptsB=$("ptsB");
+  ptsW.textContent=diff>0?"+"+diff:W.v?W.v:"0";
+  ptsB.textContent=diff<0?"+"+(-diff):B.v?B.v:"0";
+  ptsW.classList.toggle("up",diff>0); ptsB.classList.toggle("up",diff<0);
+}
+
+function renderMoves(){
+  const h=st.history||[]; const el=$("moves");
+  if(!h.length){ el.innerHTML='<div class="empty">no moves yet</div>'; return; }
+  let out=""; const lastIdx=h.length-1;
+  for(let i=0;i<h.length;i+=2){
+    const wl=i===lastIdx?" last":"", bl=i+1===lastIdx?" last":"";
+    out+=`<div class="mvrow"><span class="n">${i/2+1}</span>`
+       +`<span class="san${wl}">${h[i]}</span>`
+       +`<span class="san${bl}">${h[i+1]||""}</span></div>`;
+  }
+  el.innerHTML=out; el.scrollTop=el.scrollHeight;
+}
+
+function setStatus(extra){
+  if(st.over){
+    const r={"1-0":"White wins","0-1":"Black wins","1/2-1/2":"Draw"}[st.result]||st.result;
+    statusEl.innerHTML=`<b>Game over — ${r}</b>`;
+  }else{
+    statusEl.innerHTML=`<b>${st.turn===st.human?"Your move":"IxEngine thinking…"}</b>`+(st.check?" · check":"");
+  }
+  if(extra&&extra.engineSan){
+    if(extra.evalCp!==null&&extra.evalCp!==undefined) lastCp=extra.evalCp;
+    let e=`IxEngine played ${extra.engineSan}`;
+    if(extra.evalCp!==null&&extra.evalCp!==undefined)
+      e+=Math.abs(extra.evalCp)>=90000?"  · mate":`  · ${(extra.evalCp/100>=0?"+":"")}${(extra.evalCp/100).toFixed(2)}`;
+    engEl.textContent=e;
+  }
+}
+
+function apply(d,extra){ st=d; sel=null; render(); setStatus(extra||d); }
+
+async function onClick(sq){
+  if(busy||!st||st.over||st.turn!==st.human) return;
+  if(sel===null){ if(targets(sq).length){ sel=sq; render(); } return; }
+  if(sq===sel){ sel=null; render(); return; }
+  const ms=st.legal.filter(m=>m.slice(0,2)===sel&&m.slice(2,4)===sq);
+  if(!ms.length){ sel=targets(sq).length?sq:null; render(); return; }
+  if(ms.length>1){ askPromo(sel,sq); return; }
+  await sendMove(ms[0]);
+}
+
+function askPromo(from,to){
+  const box=document.querySelector("#promo .box"); const white=st.human==="white"; box.innerHTML="";
+  for(const pc of ["q","r","b","n"]){ const d=document.createElement("div");
+    d.style.webkitTextStroke=white?"2px #2a2a2a":"2px #0a0a0a"; d.style.color=white?"#fbfbfb":"#33373d";
+    d.textContent=SOLID[pc];
+    d.onclick=()=>{ $("promo").style.display="none"; sendMove(from+to+pc); }; box.appendChild(d); }
+  $("promo").style.display="flex";
+}
+
+async function sendMove(uci){
+  busy=true; sel=null; statusEl.innerHTML="<b>IxEngine thinking…</b>";
+  try{
+    const res=await fetch("/move",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({uci})});
+    const d=await res.json();
+    if(res.ok){
+      recentUci.push(uci);
+      if(d.engineMove) recentUci.push(d.engineMove);
+      if(recentUci.length>6) recentUci=recentUci.slice(-6);
+      apply(d,d);
+    } else render();
+  }catch(e){ statusEl.textContent="connection lost"; }
+  busy=false;
+}
+
+async function newGame(){
+  busy=true;
+  const color=document.querySelector("#color button.on").dataset.c;
+  flip=color==="black"; lastCp=0;
+  const movetime=+$("mt").value;
+  const res=await fetch("/new",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({color,movetime})});
+  const d=await res.json(); engEl.textContent="";
+  recentUci=d.last?[d.last]:[]; apply(d,d); busy=false;
+}
+
+document.querySelectorAll("#color button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("#color button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); });
+$("mt").oninput=()=>$("mtv").textContent=($("mt").value/1000).toFixed(1)+"s";
+$("newbtn").onclick=newGame;
+$("promo").onclick=e=>{ if(e.target.id==="promo") e.target.style.display="none"; };
+
+fetch("/state").then(r=>r.json()).then(d=>{ flip=d.human==="black"; recentUci=d.last?[d.last]:[]; apply(d); });
 </script>
 </body>
 </html>

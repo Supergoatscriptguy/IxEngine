@@ -30,6 +30,7 @@ state = {
     "human": chess.WHITE,
     "movetime": 1000,
     "last": None,
+    "sans": [],
 }
 
 
@@ -57,6 +58,7 @@ def engine_reply():
     )
     san = b.san(res.move)
     b.push(res.move)
+    state["sans"].append(san)
     state["last"] = res.move
     sc = res.info.get("score")
     cp = sc.white().score(mate_score=100000) if sc is not None else None
@@ -76,6 +78,7 @@ def snapshot(extra=None):
         "over": over,
         "result": b.result(claim_draw=True) if over else None,
         "movetime": state["movetime"],
+        "history": list(state["sans"]),
     }
     if extra:
         out.update(extra)
@@ -101,6 +104,7 @@ def new_game():
         state["human"] = chess.WHITE if data.get("color", "white") == "white" else chess.BLACK
         state["movetime"] = max(50, int(data.get("movetime", 1000)))
         state["last"] = None
+        state["sans"] = []
         extra = engine_reply() if state["board"].turn != state["human"] else None
         return jsonify(snapshot(extra))
 
@@ -116,6 +120,7 @@ def human_move():
             return jsonify({"error": "unparseable move"}), 400
         if mv not in b.legal_moves:
             return jsonify({"error": "illegal move"}), 400
+        state["sans"].append(b.san(mv))
         b.push(mv)
         state["last"] = mv
         extra = None
