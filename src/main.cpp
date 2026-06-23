@@ -14,6 +14,9 @@
 #include <string>
 #include <cmath>
 #include <chrono>
+#include <fstream>
+#include <random>
+#include <vector>
 
 using namespace ix;
 
@@ -130,6 +133,68 @@ void cmd_setoption(std::istringstream& is) {
     // Ponder accepted but ignored (no pondering).
 }
 
+// Self-play data generation: writes "<FEN> | <score_cp_white> | <wdl_white>"
+// lines (the text format bullet's converter ingests). Quiet positions only.
+void run_datagen(const std::string& outPath, int games, int64_t nodes, unsigned seed) {
+    std::ofstream out(outPath);
+    if (!out) { std::cerr << "datagen: cannot open " << outPath << "\n"; return; }
+    std::mt19937 rng(seed);
+    Search::set_threads(1);
+    int64_t totalPos = 0;
+    auto t0 = std::chrono::steady_clock::now();
+
+    for (int g = 0; g < games; ++g) {
+        Position pos;
+        pos.set_startpos();
+
+        // Random opening so games differ.
+        bool aborted = false;
+        int openPlies = 8 + int(rng() % 5);
+        for (int k = 0; k < openPlies; ++k) {
+            Move mv[MAX_MOVES];
+            int n = generate(pos, mv, GEN_ALL);
+            Move legal[MAX_MOVES]; int ln = 0;
+            for (int i = 0; i < n; ++i) if (legal_in(pos, mv[i])) legal[ln++] = mv[i];
+            if (ln == 0) { aborted = true; break; }
+            pos.do_move(legal[rng() % ln]);
+        }
+        if (aborted) continue;
+
+        std::vector<std::pair<std::string, int>> recs;
+        double wdlWhite = 0.5;
+        for (int ply = 0; ply < 320; ++ply) {
+            Move mv[MAX_MOVES];
+            int n = generate(pos, mv, GEN_ALL), ln = 0;
+            for (int i = 0; i < n; ++i) if (legal_in(pos, mv[i])) ln++;
+            if (ln == 0) {                       // checkmate or stalemate
+                if (pos.in_check()) wdlWhite = (pos.side_to_move() == WHITE) ? 0.0 : 1.0;
+                break;
+            }
+            if (pos.is_draw()) break;            // wdlWhite stays 0.5
+
+            int score;
+            Move bm = Search::datagen_search(pos, nodes, score);
+            if (bm == MOVE_NONE) break;
+
+            // Record quiet, non-extreme positions (the useful training signal).
+            if (!pos.in_check() && !is_capture(bm) && !is_promotion(bm) && std::abs(score) < 2000) {
+                int sw = (pos.side_to_move() == WHITE) ? score : -score;
+                recs.emplace_back(pos.fen(), sw);
+            }
+            pos.do_move(bm);
+        }
+
+        for (auto& r : recs) { out << r.first << " | " << r.second << " | " << wdlWhite << "\n"; ++totalPos; }
+        if ((g + 1) % 20 == 0) {
+            double s = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+            std::cerr << "game " << (g + 1) << "/" << games << "  positions " << totalPos
+                      << "  (" << int(totalPos / (s + 1e-9)) << " pos/s)        \r";
+        }
+    }
+    out.flush();
+    std::cerr << "\ndatagen done: " << totalPos << " positions -> " << outPath << "\n";
+}
+
 void run_bench() {
     const char* fens[] = {
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
@@ -172,6 +237,14 @@ int main(int argc, char** argv) {
     if (argc > 1) {
         std::string a1 = argv[1];
         if (a1 == "bench") { run_bench(); return 0; }
+        if (a1 == "datagen") {
+            std::string outp = argc > 2 ? argv[2] : "data.txt";
+            int games = argc > 3 ? std::stoi(argv[3]) : 1000;
+            int64_t nodes = argc > 4 ? std::stoll(argv[4]) : 5000;
+            unsigned seed = argc > 5 ? (unsigned)std::stoul(argv[5]) : 1u;
+            run_datagen(outp, games, nodes, seed);
+            return 0;
+        }
         if (a1 == "perft" && argc > 2) {
             int d = std::stoi(argv[2]);
             if (argc > 3) {

@@ -33,5 +33,9 @@ void start(Position& pos, const Limits& limits);
 void stop();          // request the running search to finish ASAP
 void wait();          // join the search thread
 
+// Synchronous, single-threaded, silent fixed-node search for data generation.
+// Returns the best move; outScore is the side-to-move-relative score (cp).
+Move datagen_search(Position& pos, int64_t nodeLimit, int& outScore);
+
 } // namespace Search
 } // namespace ix

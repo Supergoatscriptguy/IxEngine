@@ -79,6 +79,7 @@ Limits limits;
 Clock::time_point startTime;
 int64_t optimumTime = 0, maximumTime = 0;
 bool useTimeLimit = false;
+bool g_silent = false;   // suppress info output (data generation)
 
 int LMRTable[64][64];
 
@@ -455,6 +456,7 @@ std::string score_str(int v) {
 }
 
 void print_info(int depth, int selDepth, int score, const SearchStack* ss) {
+    if (g_silent) return;
     int t = elapsed_ms();
     int64_t nc = total_nodes();
     int64_t nps = t > 0 ? (nc * 1000 / t) : nc * 1000;
@@ -620,6 +622,32 @@ void stop() { stopFlag = true; }
 
 void wait() {
     if (coordinator.joinable()) coordinator.join();
+}
+
+Move datagen_search(Position& pos, int64_t nodeLimit, int& outScore) {
+    if (Threads.empty()) set_threads(1);
+    uciRootPos = &pos;
+    limits = Limits{};
+    limits.nodes = nodeLimit;
+    stopFlag = false;
+    startTime = Clock::now();
+    optimumTime = maximumTime = 0;
+    useTimeLimit = false;
+    TT.new_search();
+    g_silent = true;
+
+    Thread* t = Threads[0].get();
+    t->pos = pos;
+    t->nodes = 0;
+    t->selDepth = 0;
+    t->rootBestMove = MOVE_NONE;
+    t->completedDepth = 0;
+    t->rootScore = 0;
+    t->search();
+
+    g_silent = false;
+    outScore = t->rootScore;
+    return t->rootBestMove;
 }
 
 } // namespace Search
