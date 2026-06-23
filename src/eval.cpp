@@ -1,4 +1,5 @@
 #include "eval.h"
+#include "nnue.h"
 
 namespace ix {
 
@@ -207,6 +208,8 @@ static int king_shelter(const Position& pos, Color us) {
 }
 
 int evaluate(const Position& pos) {
+    if (NNUE::enabled) return NNUE::evaluate(pos);
+
     int mg = 0, eg = 0; // accumulators, White's perspective
 
     // --- material + piece-square tables ---

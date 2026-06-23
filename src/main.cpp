@@ -6,6 +6,7 @@
 #include "eval.h"
 #include "tt.h"
 #include "search.h"
+#include "nnue.h"
 #include "perft.h"
 
 #include <iostream>
@@ -121,6 +122,10 @@ void cmd_setoption(std::istringstream& is) {
         limitStrength = (value == "true");
     } else if (name == "UCI_Elo") {
         uciElo = std::stoi(value);
+    } else if (name == "EvalFile") {
+        bool ok = NNUE::load(value);
+        std::cout << "info string NNUE " << (ok ? "loaded: " : "disabled (HCE): ")
+                  << value << std::endl;
     }
     // Ponder accepted but ignored (no pondering).
 }
@@ -200,6 +205,7 @@ int main(int argc, char** argv) {
             std::cout << "option name Ponder type check default false\n";
             std::cout << "option name UCI_LimitStrength type check default false\n";
             std::cout << "option name UCI_Elo type spin default 2850 min 1320 max 3000\n";
+            std::cout << "option name EvalFile type string default <empty>\n";
             std::cout << "uciok" << std::endl;
         } else if (cmd == "isready") {
             std::cout << "readyok" << std::endl;
