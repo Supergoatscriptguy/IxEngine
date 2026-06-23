@@ -46,7 +46,9 @@ def gsprt_llr(W, D, L, elo0, elo1):
     if var <= 0:
         return 0.0
     s0, s1 = expected_score(elo0), expected_score(elo1)
-    return (s1 - s0) * ((W + 0.5 * D) - n * (s0 + s1) / 2.0) / (n * var)
+    # GSPRT LLR for a (near-)normal score model: (mu1-mu0)/var * (sum_x - n*mid).
+    # `var` is the per-game variance, so there is no extra factor of n here.
+    return (s1 - s0) * ((W + 0.5 * D) - n * (s0 + s1) / 2.0) / var
 
 
 def elo_with_ci(W, D, L):
@@ -116,10 +118,12 @@ class Shared:
 def worker(args, shared, la, lb):
     a = chess.engine.SimpleEngine.popen_uci(args.a)
     b = chess.engine.SimpleEngine.popen_uci(args.b)
-    for e in (a, b):
+    ta = args.threadsa or args.threads
+    tb = args.threadsb or args.threads
+    for e, tc in ((a, ta), (b, tb)):
         cfg = {"Hash": args.hash}
-        if args.threads:
-            cfg["Threads"] = args.threads
+        if tc:
+            cfg["Threads"] = tc
         try:
             e.configure(cfg)
         except Exception:
@@ -175,7 +179,9 @@ def main():
     ap.add_argument("--concurrency", type=int, default=1)
     ap.add_argument("--maxgames", type=int, default=4000)
     ap.add_argument("--hash", type=int, default=64)
-    ap.add_argument("--threads", type=int, default=0, help="engine Threads option")
+    ap.add_argument("--threads", type=int, default=0, help="engine Threads (both)")
+    ap.add_argument("--threadsa", type=int, default=0, help="engine A Threads (overrides --threads)")
+    ap.add_argument("--threadsb", type=int, default=0, help="engine B Threads (overrides --threads)")
     args = ap.parse_args()
     args.base = float(args.tc.split("+")[0])
     args.inc = float(args.tc.split("+")[1]) if "+" in args.tc else 0.0
