@@ -25,6 +25,7 @@ extern int moveOverhead; // ms, UCI-configurable
 
 void init();          // precompute reduction tables
 void clear();         // reset history/killers (new game)
+void set_threads(int n); // number of search threads (Lazy SMP)
 
 // Launch an asynchronous search on `pos`. The caller must not touch `pos`
 // until wait() returns.

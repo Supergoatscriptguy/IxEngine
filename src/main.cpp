@@ -97,6 +97,7 @@ void cmd_go(Position& pos, std::istringstream& is) {
 }
 
 void cmd_setoption(std::istringstream& is) {
+    Search::wait(); // never reconfigure while a search is running
     std::string token, name, value;
     is >> token; // "name"
     while (is >> token && token != "value") {
@@ -114,12 +115,14 @@ void cmd_setoption(std::istringstream& is) {
         TT.clear();
     } else if (name == "Move Overhead") {
         Search::moveOverhead = std::stoi(value);
+    } else if (name == "Threads") {
+        Search::set_threads(std::stoi(value));
     } else if (name == "UCI_LimitStrength") {
         limitStrength = (value == "true");
     } else if (name == "UCI_Elo") {
         uciElo = std::stoi(value);
     }
-    // Threads / Ponder accepted but ignored (single-threaded, no pondering).
+    // Ponder accepted but ignored (no pondering).
 }
 
 void run_bench() {
@@ -192,7 +195,7 @@ int main(int argc, char** argv) {
             std::cout << "id name " << ENGINE_NAME << "\n";
             std::cout << "id author " << ENGINE_AUTHOR << "\n";
             std::cout << "option name Hash type spin default 64 min 1 max 4096\n";
-            std::cout << "option name Threads type spin default 1 min 1 max 1\n";
+            std::cout << "option name Threads type spin default 1 min 1 max 256\n";
             std::cout << "option name Move Overhead type spin default 25 min 0 max 5000\n";
             std::cout << "option name Ponder type check default false\n";
             std::cout << "option name UCI_LimitStrength type check default false\n";

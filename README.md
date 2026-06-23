@@ -33,6 +33,7 @@ rating.
   delta pruning), **null-move pruning**, **LMR**, reverse-futility / late-move /
   SEE pruning, check extensions, mate-distance pruning.
 - Move ordering: TT move → MVV-LVA + SEE captures → killers → history → quiets.
+- **Lazy SMP** multithreading over a shared TT (the `Threads` option).
 - Evaluation: tapered PeSTO piece-square tables, mobility, king safety (ring
   attacks + pawn shelter), pawn structure (doubled / isolated / passed), bishop
   pair, rooks on open/semi-open files and the 7th.
@@ -59,7 +60,7 @@ MinGW/Clang also work (the build uses `-O3 -mpopcnt` off MSVC). CMake ≥ 3.15.
 | Option | Type | Default | Notes |
 |---|---|---|---|
 | `Hash` | spin | 64 | TT size in MB. |
-| `Threads` | spin | 1 | Accepted; search is single-threaded. |
+| `Threads` | spin | 1 | Search threads (Lazy SMP). 4 threads ≈ +200 Elo. |
 | `Move Overhead` | spin | 25 | ms shaved off the clock for safety. |
 | `UCI_LimitStrength` | check | false | Weaken the engine. |
 | `UCI_Elo` | spin | 2850 | Target when limiting (1320–3000). |

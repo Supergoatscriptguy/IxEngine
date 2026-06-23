@@ -17,6 +17,8 @@ struct StateInfo {
 class Position {
 public:
     Position() { clear(); }
+    Position(const Position& o) { *this = o; }
+    Position& operator=(const Position& o); // deep copy that re-anchors `st`
 
     void set(const std::string& fen);
     void set_startpos();

@@ -2,6 +2,19 @@
 #include "zobrist.h"
 #include <sstream>
 #include <cctype>
+#include <cstring>
+
+namespace ix {
+// Deep-copy everything, then re-point `st` into our own state array so the
+// copy is independent (each search thread owns its own Position).
+Position& Position::operator=(const Position& o) {
+    if (this != &o) {
+        std::memcpy(static_cast<void*>(this), static_cast<const void*>(&o), sizeof(Position));
+        st = states + (o.st - o.states);
+    }
+    return *this;
+}
+}
 
 namespace ix {
 
