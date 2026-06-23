@@ -2,9 +2,11 @@
 #include "movegen.h"
 #include "eval.h"
 #include "tt.h"
+#include "nnue.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <memory>
@@ -49,6 +51,7 @@ struct SearchStack {
 struct Thread {
     Position pos;
     SearchStack stack[MAX_PLY + 16];
+    NNUE::Accumulator accStack[MAX_PLY + 16];   // indexed by ply; incremental NNUE
     int history[COLOR_NB][SQUARE_NB][SQUARE_NB];
     int64_t nodes = 0;
     int selDepth = 0;
@@ -68,6 +71,18 @@ struct Thread {
     bool move_was_legal() const {
         Color mover = ~pos.side_to_move();
         return !pos.is_attacked(pos.king_sq(mover), pos.side_to_move());
+    }
+    int static_eval(int ply) {
+        if (!NNUE::enabled) return evaluate(pos);
+        int inc = NNUE::eval_acc(accStack[ply], pos);
+#ifdef IX_ACC_CHECK
+        int scr = NNUE::evaluate(pos);
+        if (inc != scr) {
+            std::cerr << "ACC MISMATCH ply " << ply << " inc " << inc << " scratch " << scr << std::endl;
+            std::exit(2);
+        }
+#endif
+        return inc;
     }
 };
 
@@ -172,7 +187,7 @@ int Thread::qsearch(SearchStack* ss, int alpha, int beta) {
     if (ss->ply > selDepth) selDepth = ss->ply;
 
     if (pos.is_draw()) return VALUE_DRAW;
-    if (ss->ply >= MAX_PLY) return pos.in_check() ? VALUE_DRAW : evaluate(pos);
+    if (ss->ply >= MAX_PLY) return pos.in_check() ? VALUE_DRAW : static_eval(ss->ply);
 
     bool inCheck = pos.in_check();
 
@@ -191,7 +206,7 @@ int Thread::qsearch(SearchStack* ss, int alpha, int beta) {
         bestScore = -VALUE_INFINITE;
         futilityBase = -VALUE_INFINITE;
     } else {
-        rawEval = (ttHit && tte->eval() != int(VALUE_NONE)) ? tte->eval() : evaluate(pos);
+        rawEval = (ttHit && tte->eval() != int(VALUE_NONE)) ? tte->eval() : static_eval(ss->ply);
         bestScore = rawEval;
         if (ttHit && ttValue != VALUE_NONE
             && (tte->bound() & (ttValue > bestScore ? BOUND_LOWER : BOUND_UPPER)))
@@ -224,6 +239,7 @@ int Thread::qsearch(SearchStack* ss, int alpha, int beta) {
 
         pos.do_move(m);
         if (!move_was_legal()) { pos.undo_move(m); continue; }
+        if (NNUE::enabled) NNUE::apply(accStack[ss->ply + 1], accStack[ss->ply], pos.dirty());
         ++legal;
         ss->currentMove = m;
         int score = -qsearch(ss + 1, -beta, -alpha);
@@ -264,7 +280,7 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
 
     if (!root) {
         if (pos.is_draw()) return VALUE_DRAW;
-        if (ss->ply >= MAX_PLY) return pos.in_check() ? VALUE_DRAW : evaluate(pos);
+        if (ss->ply >= MAX_PLY) return pos.in_check() ? VALUE_DRAW : static_eval(ss->ply);
         alpha = std::max(alpha, mated_in(ss->ply));
         beta = std::min(beta, mate_in(ss->ply + 1));
         if (alpha >= beta) return alpha;
@@ -293,12 +309,12 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
     if (inCheck) {
         eval = ss->staticEval = VALUE_NONE;
     } else if (ttHit) {
-        eval = ss->staticEval = (tte->eval() != int(VALUE_NONE)) ? tte->eval() : evaluate(pos);
+        eval = ss->staticEval = (tte->eval() != int(VALUE_NONE)) ? tte->eval() : static_eval(ss->ply);
         if (ttValue != VALUE_NONE
             && (tte->bound() & (ttValue > eval ? BOUND_LOWER : BOUND_UPPER)))
             eval = ttValue;
     } else {
-        eval = ss->staticEval = evaluate(pos);
+        eval = ss->staticEval = static_eval(ss->ply);
     }
 
     bool improving = false;
@@ -317,6 +333,7 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
             && pos.has_non_pawn_material(pos.side_to_move())) {
             int R = 3 + depth / 4 + std::min((eval - beta) / 200, 3);
             pos.do_null_move();
+            if (NNUE::enabled) NNUE::apply(accStack[ss->ply + 1], accStack[ss->ply], pos.dirty());
             ss->currentMove = MOVE_NULL;
             (ss + 1)->excludedMove = MOVE_NONE;
             int nullScore = -negamax(ss + 1, -beta, -beta + 1, depth - R, !cutNode);
@@ -364,6 +381,7 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
 
         pos.do_move(m);
         if (!move_was_legal()) { pos.undo_move(m); continue; }
+        if (NNUE::enabled) NNUE::apply(accStack[ss->ply + 1], accStack[ss->ply], pos.dirty());
 
         ++moveCount;
         ss->moveCount = moveCount;
@@ -480,6 +498,7 @@ void Thread::search() {
     }
     SearchStack* ss = &stack[2];
     ss->ply = 0;
+    if (NNUE::enabled) NNUE::refresh(accStack[0], pos);
 
     int maxDepth = limits.depth > 0 ? limits.depth : MAX_PLY - 1;
     int score = 0;

@@ -4,6 +4,16 @@
 
 namespace ix {
 
+// Pieces that changed on the last move (for incremental NNUE accumulators).
+// from == SQ_NONE means the piece appeared; to == SQ_NONE means it was removed.
+struct DirtyPiece {
+    int n;
+    Piece pc[3];
+    Square from[3];
+    Square to[3];
+    void add(Piece p, Square f, Square t) { pc[n] = p; from[n] = f; to[n] = t; ++n; }
+};
+
 // Saved irreversible state, pushed on do_move / popped on undo_move.
 struct StateInfo {
     int castlingRights;
@@ -12,6 +22,7 @@ struct StateInfo {
     U64 key;
     Piece captured;
     Bitboard checkers; // pieces giving check in this position
+    DirtyPiece dirty;
 };
 
 class Position {
@@ -43,6 +54,7 @@ public:
     Square ep_square() const { return st->epSquare; }
     int halfmove_clock() const { return st->halfmoveClock; }
     U64 key() const { return st->key; }
+    const DirtyPiece& dirty() const { return st->dirty; }
     Bitboard checkers() const { return st->checkers; }
     bool in_check() const { return st->checkers != 0; }
     int game_ply() const { return gamePly; }

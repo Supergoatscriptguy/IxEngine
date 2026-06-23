@@ -133,13 +133,13 @@ def main():
     oW = net.out.weight.detach().cpu().numpy()        # [8,2HL]
     oB = net.out.bias.detach().cpu().numpy()          # [8]
 
-    def q(a, s):
-        return np.clip(np.round(a * s), -32768, 32767).astype(np.int16)
+    def q(a, s, lim=32767):
+        return np.clip(np.round(a * s), -lim, lim).astype(np.int16)
 
     blob = np.concatenate([
         q(ftW.T.reshape(-1), QA),     # feature-major: f*HL + h
         q(ftB, QA),
-        q(oW.reshape(-1), QB),        # bucket-major: b*2HL + i
+        q(oW.reshape(-1), QB, 127),   # clamp to +/-127 for AVX2 madd safety
         q(oB, QA * QB),
     ])
     blob.tofile(args.out)

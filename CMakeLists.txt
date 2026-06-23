@@ -16,11 +16,12 @@ find_package(Threads REQUIRED)
 target_link_libraries(ixchess-engine PRIVATE Threads::Threads)
 
 if(MSVC)
-    target_compile_options(ixchess-engine PRIVATE /O2 /EHsc /permissive- /wd4146)
+    target_compile_options(ixchess-engine PRIVATE /O2 /EHsc /permissive- /wd4146 /arch:AVX2)
     # /wd4146: unary minus on unsigned is intentional in bit tricks.
+    # /arch:AVX2: target modern x86-64 (auto-vectorizes the NNUE int16 loops).
 else()
     target_compile_options(ixchess-engine PRIVATE
-        -O3 -funroll-loops -mpopcnt -Wall -Wno-unused-parameter)
+        -O3 -funroll-loops -mavx2 -mpopcnt -Wall -Wno-unused-parameter)
 endif()
 
 # Make the binary easy for the Python tools to find.

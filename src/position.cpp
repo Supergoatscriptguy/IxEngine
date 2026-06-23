@@ -215,6 +215,7 @@ void Position::do_move(Move m) {
     next.epSquare = SQ_NONE;
     next.halfmoveClock = st->halfmoveClock + 1;
     next.captured = NO_PIECE;
+    next.dirty.n = 0;
 
     U64 k = st->key;
     if (st->epSquare != SQ_NONE) k ^= Zobrist::enpassant[file_of(st->epSquare)];
@@ -231,6 +232,7 @@ void Position::do_move(Move m) {
             capSq = (us == WHITE) ? Square(to - 8) : Square(to + 8);
         Piece captured = board[capSq];
         next.captured = captured;
+        next.dirty.add(captured, capSq, SQ_NONE);
         k ^= Zobrist::psq[captured][capSq];
         remove_piece(capSq);
         next.halfmoveClock = 0;
@@ -238,6 +240,7 @@ void Position::do_move(Move m) {
 
     move_piece(from, to);
     k ^= Zobrist::psq[pc][from] ^ Zobrist::psq[pc][to];
+    if (!is_promotion(m)) next.dirty.add(pc, from, to);
 
     if (pt == PAWN) {
         next.halfmoveClock = 0;
@@ -250,6 +253,8 @@ void Position::do_move(Move m) {
             remove_piece(to);
             put_piece(promo, to);
             k ^= Zobrist::psq[pc][to] ^ Zobrist::psq[promo][to];
+            next.dirty.add(pc, from, SQ_NONE);     // pawn leaves
+            next.dirty.add(promo, SQ_NONE, to);    // promoted piece appears
         }
     } else if (flag == FLAG_KING_CASTLE) {
         Square rf = (us == WHITE) ? H1 : H8;
@@ -257,12 +262,14 @@ void Position::do_move(Move m) {
         move_piece(rf, rt);
         Piece rook = make_piece(us, ROOK);
         k ^= Zobrist::psq[rook][rf] ^ Zobrist::psq[rook][rt];
+        next.dirty.add(rook, rf, rt);
     } else if (flag == FLAG_QUEEN_CASTLE) {
         Square rf = (us == WHITE) ? A1 : A8;
         Square rt = (us == WHITE) ? D1 : D8;
         move_piece(rf, rt);
         Piece rook = make_piece(us, ROOK);
         k ^= Zobrist::psq[rook][rf] ^ Zobrist::psq[rook][rt];
+        next.dirty.add(rook, rf, rt);
     }
 
     int oldCr = next.castlingRights;
@@ -323,6 +330,7 @@ void Position::do_null_move() {
     next.halfmoveClock = st->halfmoveClock + 1;
     next.epSquare = SQ_NONE;
     next.captured = NO_PIECE;
+    next.dirty.n = 0;
 
     U64 k = st->key;
     if (st->epSquare != SQ_NONE) k ^= Zobrist::enpassant[file_of(st->epSquare)];
