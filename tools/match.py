@@ -53,11 +53,14 @@ def main():
     ap.add_argument("--elo", type=int, default=2200, help="Stockfish UCI_Elo")
     ap.add_argument("--games", type=int, default=20)
     ap.add_argument("--movetime", type=int, default=100, help="ms per move (both sides)")
+    ap.add_argument("--threads", type=int, default=1, help="threads for our engine")
     args = ap.parse_args()
 
     ours = chess.engine.SimpleEngine.popen_uci(args.engine)
     sf = chess.engine.SimpleEngine.popen_uci(args.stockfish)
-    print(f"Engine: {ours.id.get('name')}")
+    if args.threads > 1:
+        ours.configure({"Threads": args.threads})
+    print(f"Engine: {ours.id.get('name')} ({args.threads} thread(s))")
     print(f"Opponent: Stockfish @ UCI_Elo {args.elo}, {args.movetime} ms/move, {args.games} games\n")
 
     w = d = l = 0

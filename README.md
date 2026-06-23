@@ -1,29 +1,26 @@
 # IxEngine
 
-A classical (alpha-beta) chess engine written in C++17 — bitboards, PVS, a
-transposition table, and a hand-tuned evaluation. It speaks UCI, so any GUI or
-script that talks to Stockfish can talk to it.
-
-At 100 ms/move it scores roughly even with Stockfish 18 limited to **~2800
-UCI_Elo** (results below).
+A classical (alpha-beta) chess engine in C++17 — bitboards, PVS, a transposition
+table, Lazy SMP, and a hand-tuned evaluation (NNUE in progress). It speaks UCI, so
+any GUI or script that drives Stockfish drives it too.
 
 ## Strength
 
-Played through python-chess (`engine.play(Limit(time=0.1))`) against Stockfish 18
-with `UCI_LimitStrength`, 100 ms/move:
+Measured against Stockfish 18 (`UCI_LimitStrength`) through python-chess, on the
+"vs Stockfish at this time control" scale — *not* CCRL/FIDE, and a classical
+engine flatters itself against Stockfish at very fast TC, so treat these as
+relative:
 
-| Opponent (SF UCI_Elo) | Score (IxEngine) | W–D–L |
-|----------------------:|:----------------:|:-----:|
-| 2200 | 93% | 28–0–2 |
-| 2700 | 78% | 20–7–3 |
-| 2800 | 49% | 9–21–10 |
-| 2900 | 31% | 2–21–17 |
+| Configuration | ≈ Elo |
+|---|---|
+| 1 thread, 100 ms/move | ~2800 |
+| 4 threads, 100 ms/move | ~2820 |
+| 4 threads, ~3 s/move | ~3000 |
 
-The ~50% crossover sits right at **~2800** (40 games at 2800: 48.8%). Caveat: Stockfish's
-`UCI_Elo` at very fast time controls isn't the same as a CCRL/FIDE rating, and a
-classical engine closes the gap on Stockfish more at 100 ms than it would at long
-time controls. So read this as "≈2800 at blitz vs Stockfish," not an absolute
-rating.
+Single-thread crossover sat at SF **~2800** (40 games at 2800 → 48.8%). **Lazy SMP
+is strongly time-control dependent**: at 3 s/move 4 threads is ≈ +200 Elo over 1,
+but at 100 ms the search is too short for the helper threads to matter much
+(≈ +20). A trained NNUE eval — unlike SMP — should lift *every* time control.
 
 ## Features
 
@@ -34,10 +31,22 @@ rating.
   SEE pruning, check extensions, mate-distance pruning.
 - Move ordering: TT move → MVV-LVA + SEE captures → killers → history → quiets.
 - **Lazy SMP** multithreading over a shared TT (the `Threads` option).
-- Evaluation: tapered PeSTO piece-square tables, mobility, king safety (ring
+- Hand-tuned eval: tapered PeSTO piece-square tables, mobility, king safety (ring
   attacks + pawn shelter), pawn structure (doubled / isolated / passed), bishop
   pair, rooks on open/semi-open files and the 7th.
-- Move generation is perft-verified on the six standard test positions.
+- Move generation is perft-verified on the six standard positions.
+- **In progress:** NNUE evaluation (see [IMPROVEMENTS.md](IMPROVEMENTS.md)).
+
+## Modes
+
+All three are the *same binary*, selected by UCI options (and by a dropdown in the
+web UI):
+
+| Mode | Settings |
+|---|---|
+| **Baseline** | `Threads 1`, hand-crafted eval |
+| **Upgraded** | `Threads N`, hand-crafted eval (Lazy SMP) |
+| **Maxxed** | NNUE eval + `Threads N` *(coming)* |
 
 ## Build (Windows / MSVC)
 
@@ -45,22 +54,22 @@ rating.
 build.bat
 ```
 
-Finds `vcvars64.bat`, runs CMake (NMake, Release), and writes
-`bin\ixchess-engine.exe`. Or by hand from a Developer Command Prompt:
+Finds `vcvars64.bat`, runs CMake (NMake, Release), writes `bin\ixchess-engine.exe`.
+By hand from a Developer Command Prompt:
 
 ```bat
 cmake -S . -B build -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-MinGW/Clang also work (the build uses `-O3 -mpopcnt` off MSVC). CMake ≥ 3.15.
+MinGW/Clang also work (`-O3 -mpopcnt` off MSVC). CMake ≥ 3.15.
 
 ## UCI options
 
 | Option | Type | Default | Notes |
 |---|---|---|---|
 | `Hash` | spin | 64 | TT size in MB. |
-| `Threads` | spin | 1 | Search threads (Lazy SMP). 4 threads ≈ +200 Elo. |
+| `Threads` | spin | 1 | Search threads (Lazy SMP). Big gains at longer TC. |
 | `Move Overhead` | spin | 25 | ms shaved off the clock for safety. |
 | `UCI_LimitStrength` | check | false | Weaken the engine. |
 | `UCI_Elo` | spin | 2850 | Target when limiting (1320–3000). |
@@ -68,43 +77,51 @@ MinGW/Clang also work (the build uses `-O3 -mpopcnt` off MSVC). CMake ≥ 3.15.
 `go` understands `movetime`, `wtime/btime/winc/binc/movestogo`, `depth`, `nodes`,
 and `infinite` (+ `stop`).
 
-## Try it
-
-```bat
-:: UCI handshake
-echo uci | bin\ixchess-engine.exe
-
-:: Move-gen correctness on a FEN
-bin\ixchess-engine.exe perft 5 "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-
-:: Fixed-depth bench
-bin\ixchess-engine.exe bench
-```
-
-On the UCI prompt you also get `d` (print board), `eval`, and `perft N`.
-
 ## Play against it
 
-Browser UI — a clickable board (the front-end was generated with AI):
+Browser UI — clickable board, eval bar, move list, last-move arrows (front-end is
+AI-generated):
 
 ```bash
 pip install flask python-chess
 python tools/webui/server.py          # then open http://127.0.0.1:5000
 ```
 
-Or straight in the terminal:
+Terminal:
 
 ```bash
 python tools/play.py --color white --movetime 1000   # moves as e2e4 or Nf3
 ```
 
-## Benchmarking vs Stockfish
+Quick CLI checks:
 
-`tools/match.py` plays IxEngine against Stockfish through python-chess:
+```bat
+echo uci | bin\ixchess-engine.exe
+bin\ixchess-engine.exe perft 5 "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+bin\ixchess-engine.exe bench
+```
+
+On the UCI prompt: `d` (print board), `eval`, `perft N`.
+
+## Development & testing
+
+Every engine change is validated by self-play SPRT before it's kept — that's how
+SMP was confirmed (+207 at 3+0.03) and how two eval/ordering experiments were
+correctly rejected.
 
 ```bash
-python tools/match.py --elo 2800 --games 40 --movetime 100 --stockfish /path/to/stockfish
+# A vs B with sequential probability ratio test (GSPRT, opening book, concurrency)
+python tools/sprt.py --a bin/new.exe --b bin/base.exe --tc 5+0.05 --concurrency 12
+
+# straight head-to-head Elo between two builds
+python tools/selfplay.py --a bin/new.exe --b bin/base.exe --games 100 --movetime 100
+
+# vs Stockfish at a target Elo
+python tools/match.py --elo 2800 --games 40 --movetime 100 --threads 4 --stockfish <path>
 ```
+
+Test new changes at **both 100 ms and ~3 s**, since some gains (e.g. SMP) only show
+at longer TC.
 
 ## Layout
 
@@ -117,11 +134,15 @@ src/
   movegen.*      pseudo-legal generation
   perft.*        move-gen validation
   tt.*           transposition table
-  eval.*         tapered evaluation
-  search.*       PVS + iterative deepening + pruning
+  eval.*         hand-tuned evaluation
+  search.*       PVS + iterative deepening + Lazy SMP
   main.cpp       UCI front-end
-tools/match.py   engine-vs-Stockfish harness
+tools/
+  play.py        terminal human-vs-engine
+  webui/         browser UI (server.py + index.html)
+  match.py       vs Stockfish
+  sprt.py        SPRT A/B tester
+  selfplay.py    head-to-head Elo between two builds
 ```
 
-See [IMPROVEMENTS.md](IMPROVEMENTS.md) for the review notes and where the next Elo
-is hiding.
+See [IMPROVEMENTS.md](IMPROVEMENTS.md) for the roadmap (NNUE next) and review notes.
