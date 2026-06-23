@@ -1,6 +1,7 @@
 build/
 bin/
 tools/*.log
+__pycache__/
 *.obj
 *.pdb
 *.ilk
