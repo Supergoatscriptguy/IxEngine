@@ -1,0 +1,6 @@
+build/
+bin/
+tools/*.log
+*.obj
+*.pdb
+*.ilk
