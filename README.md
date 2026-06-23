@@ -82,6 +82,21 @@ bin\ixchess-engine.exe bench
 
 On the UCI prompt you also get `d` (print board), `eval`, and `perft N`.
 
+## Play against it
+
+Browser UI — a clickable board (the front-end was generated with AI):
+
+```bash
+pip install flask python-chess
+python tools/webui/server.py          # then open http://127.0.0.1:5000
+```
+
+Or straight in the terminal:
+
+```bash
+python tools/play.py --color white --movetime 1000   # moves as e2e4 or Nf3
+```
+
 ## Benchmarking vs Stockfish
 
 `tools/match.py` plays IxEngine against Stockfish through python-chess:

@@ -1,0 +1,264 @@
+<!doctype html>
+<!-- IxEngine play UI. This front-end was generated with AI. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Play IxEngine</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --line: #30363d; --text: #c9d1d9;
+    --accent: #58a6ff; --light: #b6c2cf; --dark: #6b7a8f;
+    --sel: #f6c343; --target: rgba(88,166,255,.55); --lastmv: rgba(246,195,67,.28);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 "Fira Code", ui-monospace, Menlo, Consolas, monospace;
+    display: flex; flex-wrap: wrap; gap: 28px; justify-content: center;
+    align-items: flex-start; padding: 32px 16px;
+  }
+  h1 { font-size: 20px; margin: 0 0 2px; color: #fff; }
+  h1 span { color: var(--accent); }
+  .sub { color: #8b949e; font-size: 12px; margin-bottom: 18px; }
+
+  #board {
+    display: grid; grid-template-columns: repeat(8, 1fr);
+    width: min(78vw, 560px); aspect-ratio: 1 / 1;
+    border: 1px solid var(--line); border-radius: 6px; overflow: hidden;
+    user-select: none;
+  }
+  .sq { position: relative; display: flex; align-items: center; justify-content: center;
+        font-size: min(9vw, 64px); line-height: 1; cursor: pointer; }
+  .sq.light { background: #2b333d; }
+  .sq.dark  { background: #1c2128; }
+  .sq.sel   { box-shadow: inset 0 0 0 3px var(--sel); }
+  .sq.last  { background-image: linear-gradient(var(--lastmv), var(--lastmv)); }
+  .sq .dot  { position: absolute; width: 26%; height: 26%; border-radius: 50%;
+              background: var(--target); pointer-events: none; }
+  .sq.cap .dot { width: 86%; height: 86%; background: transparent;
+                 border: 4px solid var(--target); }
+  .piece.w { color: #f5f7fa; text-shadow: 0 1px 2px #000, 0 0 1px #000; }
+  .piece.b { color: #20262e; text-shadow: 0 1px 1px #aeb6bf; }
+  .coord { position: absolute; font-size: 10px; color: #8b949e; opacity: .8; }
+  .coord.f { right: 3px; bottom: 1px; } .coord.r { left: 3px; top: 1px; }
+
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+           padding: 18px 20px; width: 300px; }
+  .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em;
+              color: #8b949e; margin: 0 0 10px; }
+  .row { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
+  label { font-size: 13px; }
+  button { background: var(--accent); color: #0d1117; border: 0; border-radius: 6px;
+           padding: 9px 14px; font: inherit; font-weight: 600; cursor: pointer; width: 100%; }
+  button:hover { filter: brightness(1.08); }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { background: transparent; color: var(--text); font-weight: 400; border-radius: 0; }
+  .seg button.on { background: var(--accent); color: #0d1117; font-weight: 600; }
+  input[type=range] { flex: 1; accent-color: var(--accent); }
+  #status { min-height: 44px; font-size: 14px; }
+  #status b { color: #fff; }
+  .eval { font-size: 13px; color: #8b949e; }
+  .foot { color: #6e7681; font-size: 11px; margin-top: 16px; }
+
+  #promo { position: fixed; inset: 0; background: rgba(0,0,0,.5);
+           display: none; align-items: center; justify-content: center; }
+  #promo .box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+                padding: 16px; display: flex; gap: 10px; }
+  #promo .box div { font-size: 46px; cursor: pointer; padding: 4px 10px; border-radius: 8px;
+                    color: #f5f7fa; text-shadow: 0 1px 2px #000; }
+  #promo .box div:hover { background: var(--accent); color: #0d1117; text-shadow: none; }
+</style>
+</head>
+<body>
+  <div>
+    <h1>Ix<span>Engine</span></h1>
+    <div class="sub">a classical C++ chess engine</div>
+    <div id="board"></div>
+    <div class="foot">♟ Board UI generated with AI · engine plays via UCI</div>
+  </div>
+
+  <div class="panel">
+    <h2>Game</h2>
+    <div class="row">
+      <label>You play</label>
+      <div class="seg" id="color">
+        <button data-c="white" class="on">White</button>
+        <button data-c="black">Black</button>
+      </div>
+    </div>
+    <div class="row">
+      <label>Think</label>
+      <input id="mt" type="range" min="100" max="5000" step="100" value="1000" />
+      <span id="mtv" style="width:54px;text-align:right">1.0s</span>
+    </div>
+    <div class="row"><button id="newbtn">New game</button></div>
+    <h2 style="margin-top:18px">Status</h2>
+    <div id="status">Loading…</div>
+    <div class="eval" id="eval"></div>
+  </div>
+
+  <div id="promo"><div class="box"></div></div>
+
+<script>
+const GLYPH = { P:"♙",N:"♘",B:"♗",R:"♖",Q:"♕",K:"♔", p:"♟",n:"♞",b:"♝",r:"♜",q:"♛",k:"♚" };
+const FILES = "abcdefgh";
+let st = null, sel = null, busy = false, flip = false;
+
+const boardEl  = document.getElementById("board");
+const statusEl = document.getElementById("status");
+const evalEl   = document.getElementById("eval");
+
+function piecesFromFen(fen) {
+  const rows = fen.split(" ")[0].split("/");
+  const map = {};
+  for (let r = 0; r < 8; r++) {
+    let file = 0;
+    for (const ch of rows[r]) {
+      if (ch >= "1" && ch <= "8") { file += +ch; continue; }
+      map[FILES[file] + (8 - r)] = ch;
+      file++;
+    }
+  }
+  return map;
+}
+
+function legalTargets(from) {
+  return st.legal.filter(m => m.slice(0,2) === from).map(m => m.slice(2,4));
+}
+
+function render() {
+  const pieces = piecesFromFen(st.fen);
+  const ranks = flip ? [1,2,3,4,5,6,7,8] : [8,7,6,5,4,3,2,1];
+  const files = flip ? [7,6,5,4,3,2,1,0] : [0,1,2,3,4,5,6,7];
+  const targets = sel ? new Set(legalTargets(sel)) : new Set();
+  const lastSqs = st.last ? [st.last.slice(0,2), st.last.slice(2,4)] : [];
+
+  boardEl.innerHTML = "";
+  for (const rank of ranks) {
+    for (const f of files) {
+      const sq = FILES[f] + rank;
+      const cell = document.createElement("div");
+      const dark = (f + rank) % 2 === 0;
+      cell.className = "sq " + (dark ? "dark" : "light");
+      if (sq === sel) cell.classList.add("sel");
+      if (lastSqs.includes(sq)) cell.classList.add("last");
+
+      const p = pieces[sq];
+      if (p) {
+        const span = document.createElement("span");
+        span.className = "piece " + (p === p.toUpperCase() ? "w" : "b");
+        span.textContent = GLYPH[p];
+        cell.appendChild(span);
+      }
+      if (targets.has(sq)) {
+        if (p) cell.classList.add("cap");
+        const dot = document.createElement("span"); dot.className = "dot";
+        cell.appendChild(dot);
+      }
+      // edge coordinates
+      if (f === (flip ? 7 : 0)) { const c=document.createElement("span"); c.className="coord r"; c.textContent=rank; cell.appendChild(c); }
+      if (rank === (flip ? 8 : 1)) { const c=document.createElement("span"); c.className="coord f"; c.textContent=FILES[f]; cell.appendChild(c); }
+
+      cell.onclick = () => onClick(sq);
+      boardEl.appendChild(cell);
+    }
+  }
+}
+
+function setStatus(extra) {
+  if (st.over) {
+    const r = { "1-0":"White wins", "0-1":"Black wins", "1/2-1/2":"Draw" }[st.result] || st.result;
+    statusEl.innerHTML = `<b>Game over — ${r}</b>`;
+  } else {
+    const who = st.turn === st.human ? "Your move" : "IxEngine thinking…";
+    statusEl.innerHTML = `<b>${who}</b>${st.check ? " — check!" : ""}`;
+  }
+  if (extra && extra.engineSan) {
+    let e = `IxEngine played ${extra.engineSan}`;
+    if (extra.evalCp !== null && extra.evalCp !== undefined) {
+      const cp = extra.evalCp;
+      e += Math.abs(cp) >= 90000
+        ? `  ·  mate`
+        : `  ·  eval ${(cp/100>=0?"+":"")}${(cp/100).toFixed(2)} (White)`;
+    }
+    evalEl.textContent = e;
+  } else if (!st.last) {
+    evalEl.textContent = "";
+  }
+}
+
+function apply(data, extra) { st = data; sel = null; render(); setStatus(extra || data); }
+
+async function onClick(sq) {
+  if (busy || !st || st.over || st.turn !== st.human) return;
+  if (sel === null) {
+    if (legalTargets(sq).length) { sel = sq; render(); }
+    return;
+  }
+  if (sq === sel) { sel = null; render(); return; }
+  const matches = st.legal.filter(m => m.slice(0,2) === sel && m.slice(2,4) === sq);
+  if (!matches.length) {                       // reselect or clear
+    sel = legalTargets(sq).length ? sq : null;
+    render();
+    return;
+  }
+  if (matches.length > 1) { askPromo(sel, sq); return; }  // promotion
+  await sendMove(matches[0]);
+}
+
+function askPromo(from, to) {
+  const box = document.querySelector("#promo .box");
+  const white = st.human === "white";
+  box.innerHTML = "";
+  for (const pc of ["q","r","b","n"]) {
+    const d = document.createElement("div");
+    d.textContent = GLYPH[white ? pc.toUpperCase() : pc];
+    d.onclick = () => { document.getElementById("promo").style.display = "none"; sendMove(from + to + pc); };
+    box.appendChild(d);
+  }
+  document.getElementById("promo").style.display = "flex";
+}
+
+async function sendMove(uci) {
+  busy = true; sel = null;
+  statusEl.innerHTML = "<b>IxEngine thinking…</b>";
+  try {
+    const res = await fetch("/move", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uci })
+    });
+    const data = await res.json();
+    if (!res.ok) { busy = false; render(); return; }
+    apply(data, data);
+  } catch (e) { statusEl.textContent = "connection lost"; }
+  busy = false;
+}
+
+async function newGame() {
+  busy = true;
+  const color = document.querySelector("#color button.on").dataset.c;
+  flip = color === "black";
+  const movetime = +document.getElementById("mt").value;
+  const res = await fetch("/new", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ color, movetime })
+  });
+  apply(await res.json());
+  busy = false;
+}
+
+// wiring
+document.querySelectorAll("#color button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#color button").forEach(x => x.classList.remove("on"));
+  b.classList.add("on");
+});
+const mt = document.getElementById("mt");
+mt.oninput = () => document.getElementById("mtv").textContent = (mt.value/1000).toFixed(1) + "s";
+document.getElementById("newbtn").onclick = newGame;
+document.getElementById("promo").onclick = e => { if (e.target.id === "promo") e.target.style.display = "none"; };
+
+fetch("/state").then(r => r.json()).then(d => { flip = d.human === "black"; apply(d); });
+</script>
+</body>
+</html>
