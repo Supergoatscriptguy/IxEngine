@@ -8,13 +8,15 @@ get one updating status line you can tab in and glance at.
 """
 
 import argparse
+import os
 import subprocess
 import sys
 import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_ENGINE = ROOT / "bin" / "ixchess-engine.exe"
+ENGINE_BIN = "ixchess-engine.exe" if os.name == "nt" else "ixchess-engine"
+DEFAULT_ENGINE = ROOT / "bin" / ENGINE_BIN
 
 
 def fmt_time(s):

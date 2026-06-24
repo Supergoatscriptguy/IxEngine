@@ -1,7 +1,6 @@
 build/
 bin/
 data/
-*.nnue
 tools/*.log
 __pycache__/
 *.obj
