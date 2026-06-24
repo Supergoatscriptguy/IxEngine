@@ -1,26 +1,25 @@
 # IxEngine
 
 A classical (alpha-beta) chess engine in C++17 — bitboards, PVS, a transposition
-table, Lazy SMP, and a hand-tuned evaluation (NNUE in progress). It speaks UCI, so
+table, Lazy SMP, a hand-tuned evaluation, and an optional NNUE net. It speaks UCI, so
 any GUI or script that drives Stockfish drives it too.
 
 ## Strength
 
-Measured against Stockfish 18 (`UCI_LimitStrength`) through python-chess, on the
-"vs Stockfish at this time control" scale — *not* CCRL/FIDE, and a classical
-engine flatters itself against Stockfish at very fast TC, so treat these as
-relative:
+Two evaluations: the hand-crafted one (default) and an **optional NNUE net**
+(`EvalFile`). The NNUE, trained on 23M self-play positions, beats the hand eval by
+a wide, SPRT-confirmed margin (self-play, 1 thread):
 
-| Configuration | ≈ Elo |
+| Test | Result |
 |---|---|
-| 1 thread, 100 ms/move | ~2800 |
-| 4 threads, 100 ms/move | ~2820 |
-| 4 threads, ~3 s/move | ~3000 |
+| NNUE vs hand eval, 100 ms | **+124 ±30 Elo** |
+| NNUE vs hand eval, 8+0.08 | **+148 ±36 Elo** |
 
-Single-thread crossover sat at SF **~2800** (40 games at 2800 → 48.8%). **Lazy SMP
-is strongly time-control dependent**: at 3 s/move 4 threads is ≈ +200 Elo over 1,
-but at 100 ms the search is too short for the helper threads to matter much
-(≈ +20). A trained NNUE eval — unlike SMP — should lift *every* time control.
+Vs Stockfish 18 (`UCI_LimitStrength`, 100 ms): the hand eval (Baseline) crosses 50%
+at **~2800**; NNUE (Maxxed) adds ~+124 on top of that. **Lazy SMP** adds ~+200 more
+at long time control (much less at blitz, where the search is too short for the
+helper threads to matter). Numbers are on the "vs Stockfish at this TC" scale —
+*not* CCRL/FIDE.
 
 ## Features
 
@@ -35,7 +34,8 @@ but at 100 ms the search is too short for the helper threads to matter much
   attacks + pawn shelter), pawn structure (doubled / isolated / passed), bishop
   pair, rooks on open/semi-open files and the 7th.
 - Move generation is perft-verified on the six standard positions.
-- **In progress:** NNUE evaluation (see [IMPROVEMENTS.md](IMPROVEMENTS.md)).
+- Optional **NNUE evaluation** (`768→512` perspective, SCReLU, 8 buckets) with
+  incremental accumulators + AVX2 — trained by the included PyTorch pipeline.
 
 ## Modes
 
@@ -46,7 +46,7 @@ web UI):
 |---|---|
 | **Baseline** | `Threads 1`, hand-crafted eval |
 | **Upgraded** | `Threads N`, hand-crafted eval (Lazy SMP) |
-| **Maxxed** | NNUE eval + `Threads N` *(coming)* |
+| **Maxxed** | NNUE eval (`EvalFile`) + `Threads N` |
 
 ## Build (Windows / MSVC)
 

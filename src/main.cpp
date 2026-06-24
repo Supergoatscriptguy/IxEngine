@@ -242,6 +242,7 @@ int main(int argc, char** argv) {
             int games = argc > 3 ? std::stoi(argv[3]) : 1000;
             int64_t nodes = argc > 4 ? std::stoll(argv[4]) : 5000;
             unsigned seed = argc > 5 ? (unsigned)std::stoul(argv[5]) : 1u;
+            if (argc > 6) NNUE::load(argv[6]);   // optional net (bootstrap datagen)
             run_datagen(outp, games, nodes, seed);
             return 0;
         }

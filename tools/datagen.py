@@ -48,6 +48,7 @@ def main():
     ap.add_argument("--games", type=int, default=100000, help="total games across workers")
     ap.add_argument("--nodes", type=int, default=5000, help="search nodes per move")
     ap.add_argument("--workers", type=int, default=16)
+    ap.add_argument("--net", default="", help="NNUE net for bootstrap datagen (better labels)")
     args = ap.parse_args()
 
     out = Path(args.out)
@@ -60,9 +61,10 @@ def main():
     for w, shard in enumerate(shards):
         if shard.exists():
             shard.unlink()
-        procs.append(subprocess.Popen(
-            [args.engine, "datagen", str(shard), str(per), str(args.nodes), str(w + 1)],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+        cmd = [args.engine, "datagen", str(shard), str(per), str(args.nodes), str(w + 1)]
+        if args.net:
+            cmd.append(args.net)
+        procs.append(subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
 
     print(f"datagen: {args.workers} workers x {per} games @ {args.nodes} nodes/move "
           f"(~{human(target)} positions target)")
