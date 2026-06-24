@@ -120,10 +120,12 @@ def worker(args, shared, la, lb):
     b = chess.engine.SimpleEngine.popen_uci(args.b)
     ta = args.threadsa or args.threads
     tb = args.threadsb or args.threads
-    for e, tc in ((a, ta), (b, tb)):
+    for e, tc, ev in ((a, ta, args.neta), (b, tb, args.netb)):
         cfg = {"Hash": args.hash}
         if tc:
             cfg["Threads"] = tc
+        if ev:
+            cfg["EvalFile"] = ev
         try:
             e.configure(cfg)
         except Exception:
@@ -182,6 +184,8 @@ def main():
     ap.add_argument("--threads", type=int, default=0, help="engine Threads (both)")
     ap.add_argument("--threadsa", type=int, default=0, help="engine A Threads (overrides --threads)")
     ap.add_argument("--threadsb", type=int, default=0, help="engine B Threads (overrides --threads)")
+    ap.add_argument("--neta", default="", help="EvalFile (NNUE) for engine A")
+    ap.add_argument("--netb", default="", help="EvalFile (NNUE) for engine B")
     args = ap.parse_args()
     args.base = float(args.tc.split("+")[0])
     args.inc = float(args.tc.split("+")[1]) if "+" in args.tc else 0.0
