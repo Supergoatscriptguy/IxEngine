@@ -27,14 +27,17 @@ MAXP = 32
 PT = {"p": 0, "n": 1, "b": 2, "r": 3, "q": 4, "k": 5}
 
 
-def load_data(path, limit):
-    # Pass 1: count usable lines.
+def load_data(paths, limit):
+    # Pass 1: count usable lines across all files.
     n = 0
-    with open(path) as f:
-        for _ in f:
-            n += 1
-            if n >= limit:
-                break
+    for path in paths:
+        with open(path) as f:
+            for _ in f:
+                n += 1
+                if n >= limit:
+                    break
+        if n >= limit:
+            break
     N = n
 
     wI = np.full((N, MAXP), INPUT, np.int16)
@@ -45,33 +48,36 @@ def load_data(path, limit):
     wdl = np.zeros(N, np.float32)
 
     out = 0
-    with open(path) as f:
-        for line in f:
-            if out >= N:
-                break
-            parts = line.split("|")
-            if len(parts) != 3:
-                continue
-            ff = parts[0].split()
-            board, turn = ff[0], ff[1]
-            rank, file, k = 7, 0, 0
-            for ch in board:
-                if ch == "/":
-                    rank -= 1; file = 0
-                elif "1" <= ch <= "8":
-                    file += ord(ch) - 48
-                else:
-                    sq = rank * 8 + file
-                    white = ch.isupper()
-                    pt = PT[ch.lower()]
-                    wI[out, k] = (0 if white else 1) * 384 + pt * 64 + sq
-                    bI[out, k] = (1 if white else 0) * 384 + pt * 64 + (sq ^ 56)
-                    k += 1; file += 1
-            stm[out] = 0 if turn == "w" else 1
-            bucket[out] = min(max((k - 2) // 4, 0), BUCKETS - 1)
-            score[out] = float(parts[1])
-            wdl[out] = float(parts[2])
-            out += 1
+    for path in paths:
+        if out >= N:
+            break
+        with open(path) as f:
+            for line in f:
+                if out >= N:
+                    break
+                parts = line.split("|")
+                if len(parts) != 3:
+                    continue
+                ff = parts[0].split()
+                board, turn = ff[0], ff[1]
+                rank, file, k = 7, 0, 0
+                for ch in board:
+                    if ch == "/":
+                        rank -= 1; file = 0
+                    elif "1" <= ch <= "8":
+                        file += ord(ch) - 48
+                    else:
+                        sq = rank * 8 + file
+                        white = ch.isupper()
+                        pt = PT[ch.lower()]
+                        wI[out, k] = (0 if white else 1) * 384 + pt * 64 + sq
+                        bI[out, k] = (1 if white else 0) * 384 + pt * 64 + (sq ^ 56)
+                        k += 1; file += 1
+                stm[out] = 0 if turn == "w" else 1
+                bucket[out] = min(max((k - 2) // 4, 0), BUCKETS - 1)
+                score[out] = float(parts[1])
+                wdl[out] = float(parts[2])
+                out += 1
     return wI[:out], bI[:out], stm[:out], bucket[:out], score[:out], wdl[:out]
 
 
@@ -97,7 +103,7 @@ class Net(nn.Module):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--data", required=True)
+    ap.add_argument("--data", required=True, nargs="+", help="one or more data files")
     ap.add_argument("--out", required=True)
     ap.add_argument("--epochs", type=int, default=20)
     ap.add_argument("--batch", type=int, default=16384)
