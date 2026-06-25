@@ -1,0 +1,43 @@
+{
+  "_comment": "Permanent CCRL-anchor config. Opponents are FIXED at their published CCRL ratings (read from the official computerchess.org.uk list at the /4040/ path, which CCRL now brands 'CCRL 40/15'); the rig solves only for IxEngine. Re-run after any upgrade: python tools/anchor/run_anchor.py (or run_anchor.bat). Keep opponents/anchors/conditions stable so runs stay comparable. Paths are relative to the engine root. All anchor ratings are 1-CPU figures, matching IxEngine at Threads=1.",
+  "tc": "15+0.15",
+  "games_total": 400,
+  "concurrency": 8,
+  "hash": 64,
+  "ixengine": {
+    "name": "IxEngine 1.0",
+    "cmd": "bin/ixchess-engine.exe",
+    "options": { "Threads": 1, "EvalFile": "nets/ix-gen2.nnue" }
+  },
+  "common_options": { "Threads": 1, "OwnBook": false },
+  "opponents": [
+    {
+      "name": "Cheng4 0.38",
+      "version": "Cheng4 0.38 64-bit",
+      "ccrl_4040": 2906,
+      "cmd": "tools/anchor/engines/cheng4/cheng4/cheng4_x64.exe",
+      "options": {}
+    },
+    {
+      "name": "Senpai 1.0",
+      "version": "Senpai 1.0 64-bit",
+      "ccrl_4040": 2985,
+      "cmd": "tools/anchor/engines/senpai/Senpai1.0_sse42.exe",
+      "options": {}
+    },
+    {
+      "name": "Inanis 1.6.0",
+      "version": "Inanis 1.6.0 64-bit",
+      "ccrl_4040": 3048,
+      "cmd": "tools/anchor/engines/inanis/inanis.exe",
+      "options": {}
+    },
+    {
+      "name": "Bit-Genie 9",
+      "version": "Bit-Genie 9 64-bit",
+      "ccrl_4040": 3098,
+      "cmd": "tools/anchor/engines/bit-genie/Bit-Genie-9-modern.exe",
+      "options": {}
+    }
+  ]
+}

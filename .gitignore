@@ -2,6 +2,8 @@ build/
 bin/
 data/
 tools/*.log
+tools/anchor/engines/
+tools/anchor/runs/*.pgn
 __pycache__/
 *.obj
 *.pdb

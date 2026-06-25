@@ -19,16 +19,27 @@ generates better data, which trains a stronger net. SPRT vs the hand eval
 gen2 (93M positions) is **+177** over gen1 (23M) — one bootstrap generation nearly
 doubled the edge, and NNUE gains *more* at long TC.
 
-Approx absolute strength (anchored on Baseline's ~2800 Stockfish-blitz crossover;
-SMP measured at +20 blitz / +200 long-TC):
+### Where it sits on the CCRL scale
 
-| Mode | 100 ms | 3 s |
+Played against four open-source engines with published CCRL ratings, held as fixed
+anchors — the rig in [tools/anchor/](tools/anchor/) solves for IxEngine only. NNUE
+on, single thread, 64 MB hash each, TC 15+0.15, 400 games:
+
+| Opponent (anchor) | CCRL | IxEngine score |
 |---|---|---|
-| Baseline (1t, hand eval) | ~2800 | ~2800 |
-| Upgraded (SMP, hand eval) | ~2820 | ~3000 |
-| **Maxxed** (SMP, NNUE) | **~3060** | **~3330** |
+| Cheng4 0.38 | 2906 | 78% |
+| Senpai 1.0 | 2985 | 46% |
+| Inanis 1.6.0 | 3048 | 56% |
+| Bit-Genie 9 | 3098 | 62% |
 
-Numbers are on the "vs Stockfish at this TC" scale — *not* CCRL/FIDE.
+**IxEngine ≈ 3088 (95% CI ±29)** on the CCRL blitz-equivalent scale.
+
+This is a *blitz-anchored approximation*, not a true CCRL 40/40 result: strength
+shifts with time control, and the per-opponent scores aren't perfectly monotonic
+(Senpai punches above its slow-TC rating at this speed), so read it as "competitive
+with listed ~3000–3100 engines at blitz," not a guaranteed 40/40 number. Re-measure
+any build with `run_anchor.bat`. SMP adds roughly +20 (blitz) / +200 (long TC) on
+top, measured by self-play SPRT.
 
 ## Features
 
@@ -132,6 +143,14 @@ python tools/match.py --elo 2800 --games 40 --movetime 100 --threads 4 --stockfi
 Test new changes at **both 100 ms and ~3 s**, since some gains (e.g. SMP) only show
 at longer TC.
 
+To place a build on the **CCRL scale**, the anchor rig plays it against engines
+with known CCRL ratings (held fixed) and solves for IxEngine, with a bootstrap CI:
+
+```bash
+run_anchor.bat                                   # or: python tools/anchor/run_anchor.py
+python tools/anchor/run_anchor.py --tag gen3     # label a run; logs to history.csv
+```
+
 ## Layout
 
 ```
@@ -152,6 +171,7 @@ tools/
   match.py       vs Stockfish
   sprt.py        SPRT A/B tester
   selfplay.py    head-to-head Elo between two builds
+  anchor/        CCRL-anchored rating rig (run_anchor.py + solve.py)
 ```
 
 See [IMPROVEMENTS.md](IMPROVEMENTS.md) for the roadmap (NNUE next) and review notes.
