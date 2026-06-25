@@ -7,19 +7,21 @@ any GUI or script that drives Stockfish drives it too.
 ## Strength
 
 Two evaluations: the hand-crafted one (default) and an **optional NNUE net**
-(`EvalFile`). The NNUE, trained on 23M self-play positions, beats the hand eval by
-a wide, SPRT-confirmed margin (self-play, 1 thread):
+(`EvalFile`). The NNUE is **bootstrapped over self-play generations** — each net
+generates better data, which trains a stronger net. SPRT vs the hand eval
+(self-play, 1 thread, 100 ms):
 
-| Test | Result |
+| Net | vs hand eval |
 |---|---|
-| NNUE vs hand eval, 100 ms | **+124 ±30 Elo** |
-| NNUE vs hand eval, 8+0.08 | **+148 ±36 Elo** |
+| gen1 (23M positions) | +124 ±30 Elo |
+| **gen2** (93M, bootstrapped) | **+237 ±55 Elo** |
 
-Vs Stockfish 18 (`UCI_LimitStrength`, 100 ms): the hand eval (Baseline) crosses 50%
-at **~2800**; NNUE (Maxxed) adds ~+124 on top of that. **Lazy SMP** adds ~+200 more
-at long time control (much less at blitz, where the search is too short for the
-helper threads to matter). Numbers are on the "vs Stockfish at this TC" scale —
-*not* CCRL/FIDE.
+One bootstrap generation nearly doubled the edge (gen2 is **+177** over gen1).
+NNUE gains even more at long TC (gen1 alone was +148 at 8+0.08).
+
+Anchoring the hand eval at its Stockfish-blitz crossover (~2800): **Maxxed-eval ≈
+3040 at blitz** (1 thread), with **Lazy SMP** adding ~+200 more at long time
+control. Numbers are on the "vs Stockfish at this TC" scale — *not* CCRL/FIDE.
 
 ## Features
 
