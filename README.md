@@ -11,17 +11,24 @@ Two evaluations: the hand-crafted one (default) and an **optional NNUE net**
 generates better data, which trains a stronger net. SPRT vs the hand eval
 (self-play, 1 thread, 100 ms):
 
-| Net | vs hand eval |
+| NNUE gen2 vs hand eval | Elo |
 |---|---|
-| gen1 (23M positions) | +124 ±30 Elo |
-| **gen2** (93M, bootstrapped) | **+237 ±55 Elo** |
+| 100 ms | **+237 ±55** |
+| 8+0.08 (long TC) | **+332 ±89** |
 
-One bootstrap generation nearly doubled the edge (gen2 is **+177** over gen1).
-NNUE gains even more at long TC (gen1 alone was +148 at 8+0.08).
+gen2 (93M positions) is **+177** over gen1 (23M) — one bootstrap generation nearly
+doubled the edge, and NNUE gains *more* at long TC.
 
-Anchoring the hand eval at its Stockfish-blitz crossover (~2800): **Maxxed-eval ≈
-3040 at blitz** (1 thread), with **Lazy SMP** adding ~+200 more at long time
-control. Numbers are on the "vs Stockfish at this TC" scale — *not* CCRL/FIDE.
+Approx absolute strength (anchored on Baseline's ~2800 Stockfish-blitz crossover;
+SMP measured at +20 blitz / +200 long-TC):
+
+| Mode | 100 ms | 3 s |
+|---|---|---|
+| Baseline (1t, hand eval) | ~2800 | ~2800 |
+| Upgraded (SMP, hand eval) | ~2820 | ~3000 |
+| **Maxxed** (SMP, NNUE) | **~3060** | **~3330** |
+
+Numbers are on the "vs Stockfish at this TC" scale — *not* CCRL/FIDE.
 
 ## Features
 
