@@ -1,5 +1,6 @@
 #include "position.h"
 #include "zobrist.h"
+#include "tt.h"
 #include <sstream>
 #include <cctype>
 #include <cstring>
@@ -283,6 +284,9 @@ void Position::do_move(Move m) {
     stm = them;
     next.key = k;
 
+    // Pull the child's TT cluster into cache while compute_checkers() runs.
+    TT.prefetch(k);
+
     ++st;
     ++gamePly;
     st->checkers = compute_checkers();
@@ -338,6 +342,7 @@ void Position::do_null_move() {
 
     stm = ~stm;
     next.key = k;
+    TT.prefetch(k);
 
     ++st;
     ++gamePly;

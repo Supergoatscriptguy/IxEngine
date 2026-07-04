@@ -643,6 +643,8 @@ void wait() {
     if (coordinator.joinable()) coordinator.join();
 }
 
+int64_t last_nodes() { return total_nodes(); }
+
 Move datagen_search(Position& pos, int64_t nodeLimit, int& outScore) {
     if (Threads.empty()) set_threads(1);
     uciRootPos = &pos;

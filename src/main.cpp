@@ -213,12 +213,14 @@ void run_bench() {
         lim.depth = 12;
         Search::start(pos, lim);
         Search::wait();
+        total += Search::last_nodes();
         TT.clear();
     }
     auto t1 = std::chrono::steady_clock::now();
     double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
-    std::cout << "bench complete in " << ms << " ms\n";
-    (void)total;
+    std::cout << "bench: " << total << " nodes  "
+              << int64_t(total * 1000.0 / (ms > 0 ? ms : 1)) << " nps  "
+              << ms << " ms\n";
 }
 
 } // namespace

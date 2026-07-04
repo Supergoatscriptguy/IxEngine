@@ -32,6 +32,7 @@ void set_threads(int n); // number of search threads (Lazy SMP)
 void start(Position& pos, const Limits& limits);
 void stop();          // request the running search to finish ASAP
 void wait();          // join the search thread
+int64_t last_nodes(); // nodes searched by the last completed search (all threads)
 
 // Synchronous, single-threaded, silent fixed-node search for data generation.
 // Returns the best move; outScore is the side-to-move-relative score (cp).

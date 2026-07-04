@@ -86,6 +86,7 @@ int TranspositionTable::hashfull() const {
 }
 
 void TranspositionTable::prefetch(U64 key) const {
+    if (!clusterCount) return;
 #if defined(__GNUC__)
     __builtin_prefetch(&table[size_t(key) & (clusterCount - 1)]);
 #elif defined(_MSC_VER)
