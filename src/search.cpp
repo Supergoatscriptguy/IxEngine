@@ -300,9 +300,10 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
     Move ttMove = root ? rootBestMove : (ttHit ? tte->move() : MOVE_NONE);
     int ttValue = ttHit ? value_from_tt(tte->value(), ss->ply) : VALUE_NONE;
     int ttDepth = ttHit ? tte->depth() : -1;
+    Bound ttBound = ttHit ? tte->bound() : BOUND_NONE;   // snapshot: child searches may replace *tte
 
     if (!pvNode && !excluded && ttHit && ttDepth >= depth && ttValue != VALUE_NONE
-        && (tte->bound() & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER)))
+        && (ttBound & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER)))
         return ttValue;
 
     int eval;
@@ -311,7 +312,7 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
     } else if (ttHit) {
         eval = ss->staticEval = (tte->eval() != int(VALUE_NONE)) ? tte->eval() : static_eval(ss->ply);
         if (ttValue != VALUE_NONE
-            && (tte->bound() & (ttValue > eval ? BOUND_LOWER : BOUND_UPPER)))
+            && (ttBound & (ttValue > eval ? BOUND_LOWER : BOUND_UPPER)))
             eval = ttValue;
     } else {
         eval = ss->staticEval = static_eval(ss->ply);
@@ -379,6 +380,28 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
             }
         }
 
+        // Singular extension: if the TT move beats a lowered bound at reduced
+        // depth while every alternative fails low, it is the only good move --
+        // search it one ply deeper. If alternatives also beat the bound, the
+        // node is likely a cut-node whichever move we pick (multicut).
+        int extension = 0;
+        if (!root && !excluded && depth >= 8 && m == ttMove
+            && ttValue != VALUE_NONE && std::abs(ttValue) < VALUE_MATE_IN_MAX_PLY
+            && (ttBound & BOUND_LOWER) && ttDepth >= depth - 3) {
+            int sBeta = ttValue - 2 * depth;
+            int sDepth = (depth - 1) / 2;
+            ss->excludedMove = m;
+            int sValue = negamax(ss, sBeta - 1, sBeta, sDepth, cutNode);
+            ss->excludedMove = MOVE_NONE;
+            if (stopFlag) return 0;
+            if (sValue < sBeta)
+                extension = 1;
+            else if (sBeta >= beta)
+                return sBeta;
+            else if (ttValue >= beta)
+                extension = -1;
+        }
+
         pos.do_move(m);
         if (!move_was_legal()) { pos.undo_move(m); continue; }
         if (NNUE::enabled) NNUE::apply(accStack[ss->ply + 1], accStack[ss->ply], pos.dirty());
@@ -388,8 +411,7 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
         ss->currentMove = m;
         if (isQuiet && quietCount < 64) quietsTried[quietCount++] = m;
 
-        int extension = 0;
-        if (givesCheck && (pvNode || pos.see_ge(m, -100)))
+        if (extension == 0 && givesCheck && (pvNode || pos.see_ge(m, -100)))
             extension = 1;
         int newDepth = depth - 1 + extension;
 
