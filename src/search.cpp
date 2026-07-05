@@ -53,6 +53,7 @@ struct Thread {
     SearchStack stack[MAX_PLY + 16];
     NNUE::Accumulator accStack[MAX_PLY + 16];   // indexed by ply; incremental NNUE
     int history[COLOR_NB][SQUARE_NB][SQUARE_NB];
+    Move counterMove[COLOR_NB][SQUARE_NB][SQUARE_NB];   // reply that refuted [us][prevFrom][prevTo]
     int64_t nodes = 0;
     int selDepth = 0;
     Move rootBestMove = MOVE_NONE;
@@ -61,7 +62,10 @@ struct Thread {
     int id = 0;
     std::thread th;
 
-    void clear_tables() { std::memset(history, 0, sizeof(history)); }
+    void clear_tables() {
+        std::memset(history, 0, sizeof(history));
+        std::memset(counterMove, 0, sizeof(counterMove));
+    }
     void search();
     int negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNode);
     int qsearch(SearchStack* ss, int alpha, int beta);
@@ -102,6 +106,7 @@ constexpr int SCORE_TT       = 1 << 28;
 constexpr int SCORE_GOOD_CAP = 1 << 24;
 constexpr int SCORE_KILLER0  = (1 << 23) + 1;
 constexpr int SCORE_KILLER1  = (1 << 23);
+constexpr int SCORE_COUNTER  = (1 << 23) - 1;
 constexpr int SCORE_QUIET    = 0;
 constexpr int SCORE_BAD_CAP  = -(1 << 24);
 
@@ -157,6 +162,9 @@ void Thread::check_time() {
 
 void Thread::score_moves(Move* moves, int n, int* scores, Move ttMove, const SearchStack* ss) {
     Color us = pos.side_to_move();
+    Move prev = ss->ply > 0 ? (ss - 1)->currentMove : MOVE_NONE;
+    Move counter = (prev != MOVE_NONE && prev != MOVE_NULL)
+                 ? counterMove[us][from_sq(prev)][to_sq(prev)] : MOVE_NONE;
     for (int i = 0; i < n; ++i) {
         Move m = moves[i];
         if (m == ttMove) { scores[i] = SCORE_TT; continue; }
@@ -172,6 +180,8 @@ void Thread::score_moves(Move* moves, int n, int* scores, Move ttMove, const Sea
             scores[i] = SCORE_KILLER0;
         } else if (m == ss->killers[1]) {
             scores[i] = SCORE_KILLER1;
+        } else if (m == counter) {
+            scores[i] = SCORE_COUNTER;
         } else {
             scores[i] = SCORE_QUIET + history[us][from_sq(m)][to_sq(m)];
         }
@@ -454,6 +464,9 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
                             ss->killers[1] = ss->killers[0];
                             ss->killers[0] = m;
                         }
+                        Move prev = ss->ply > 0 ? (ss - 1)->currentMove : MOVE_NONE;
+                        if (prev != MOVE_NONE && prev != MOVE_NULL)
+                            counterMove[us][from_sq(prev)][to_sq(prev)] = m;
                         int bonus = std::min(depth * depth, 1200);
                         update_history(history[us][from_sq(m)][to_sq(m)], bonus);
                         for (int q = 0; q < quietCount; ++q) {
