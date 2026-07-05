@@ -525,6 +525,8 @@ void Thread::search() {
     int maxDepth = limits.depth > 0 ? limits.depth : MAX_PLY - 1;
     int score = 0;
     Move lastBest = MOVE_NONE;
+    int stableCnt = 0;       // consecutive iterations with the same best move
+    int prevIterScore = 0;
 
     for (int depth = 1; depth <= maxDepth; ++depth) {
         if (stopFlag && lastBest != MOVE_NONE) break;
@@ -551,13 +553,24 @@ void Thread::search() {
 
         if (stopFlag && lastBest != MOVE_NONE) break;
         score = newScore;
-        if (rootBestMove != MOVE_NONE) { lastBest = rootBestMove; completedDepth = depth; rootScore = score; }
+        if (rootBestMove != MOVE_NONE) {
+            stableCnt = (rootBestMove == lastBest) ? stableCnt + 1 : 0;
+            lastBest = rootBestMove; completedDepth = depth; rootScore = score;
+        }
+        bool scoreDropping = depth >= 5 && score <= prevIterScore - 30;
+        prevIterScore = score;
 
         if (id == 0) print_info(depth, selDepth, score, ss);
         if (stopFlag) break;
 
         // Only the main thread enforces the soft time limit and stops the rest.
-        if (id == 0 && useTimeLimit && elapsed_ms() >= optimumTime) { stopFlag = true; break; }
+        // Spend less once the best move has been stable for several iterations,
+        // more while it keeps flipping or the score has just dropped.
+        if (id == 0 && useTimeLimit) {
+            double fac = 1.25 - 0.08 * std::min(stableCnt, 6);
+            if (scoreDropping) fac *= 1.3;
+            if (elapsed_ms() >= int64_t(optimumTime * fac)) { stopFlag = true; break; }
+        }
         if (std::abs(score) >= VALUE_MATE_IN_MAX_PLY && depth >= 6) { if (id == 0) stopFlag = true; break; }
     }
 
