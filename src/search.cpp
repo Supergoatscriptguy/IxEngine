@@ -36,6 +36,8 @@ namespace {
 
 using Clock = std::chrono::steady_clock;
 
+using PieceToHist = int16_t[PIECE_NB][SQUARE_NB];
+
 struct SearchStack {
     int ply;
     Move currentMove;
@@ -43,6 +45,7 @@ struct SearchStack {
     Move killers[2];
     int staticEval;
     int moveCount;
+    PieceToHist* contSlice;   // continuation-history slice for the move made here
     Move pv[MAX_PLY + 1];
 };
 
@@ -54,6 +57,7 @@ struct Thread {
     NNUE::Accumulator accStack[MAX_PLY + 16];   // indexed by ply; incremental NNUE
     int history[COLOR_NB][SQUARE_NB][SQUARE_NB];
     Move counterMove[COLOR_NB][SQUARE_NB][SQUARE_NB];   // reply that refuted [us][prevFrom][prevTo]
+    int16_t contHist[PIECE_NB][SQUARE_NB][PIECE_NB][SQUARE_NB];   // [prevPc][prevTo][pc][to]
     int64_t nodes = 0;
     int selDepth = 0;
     Move rootBestMove = MOVE_NONE;
@@ -65,6 +69,7 @@ struct Thread {
     void clear_tables() {
         std::memset(history, 0, sizeof(history));
         std::memset(counterMove, 0, sizeof(counterMove));
+        std::memset(contHist, 0, sizeof(contHist));
     }
     void search();
     int negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNode);
@@ -146,6 +151,10 @@ void update_history(int& h, int bonus) {
     h += bonus - h * std::abs(bonus) / 16384;
 }
 
+void update_hist16(int16_t& h, int bonus) {
+    h += int16_t(bonus - int(h) * std::abs(bonus) / 16384);
+}
+
 void pick_move(Move* moves, int* scores, int n, int idx) {
     int best = idx;
     for (int j = idx + 1; j < n; ++j)
@@ -165,6 +174,8 @@ void Thread::score_moves(Move* moves, int n, int* scores, Move ttMove, const Sea
     Move prev = ss->ply > 0 ? (ss - 1)->currentMove : MOVE_NONE;
     Move counter = (prev != MOVE_NONE && prev != MOVE_NULL)
                  ? counterMove[us][from_sq(prev)][to_sq(prev)] : MOVE_NONE;
+    const PieceToHist* c1 = ss->ply > 0 ? (ss - 1)->contSlice : nullptr;
+    const PieceToHist* c2 = ss->ply > 1 ? (ss - 2)->contSlice : nullptr;
     for (int i = 0; i < n; ++i) {
         Move m = moves[i];
         if (m == ttMove) { scores[i] = SCORE_TT; continue; }
@@ -183,7 +194,11 @@ void Thread::score_moves(Move* moves, int n, int* scores, Move ttMove, const Sea
         } else if (m == counter) {
             scores[i] = SCORE_COUNTER;
         } else {
-            scores[i] = SCORE_QUIET + history[us][from_sq(m)][to_sq(m)];
+            int h = history[us][from_sq(m)][to_sq(m)];
+            Piece pc = pos.piece_on(from_sq(m));
+            if (c1) h += (*c1)[pc][to_sq(m)];
+            if (c2) h += (*c2)[pc][to_sq(m)];
+            scores[i] = SCORE_QUIET + h;
         }
     }
 }
@@ -247,11 +262,13 @@ int Thread::qsearch(SearchStack* ss, int alpha, int beta) {
             if (!pos.see_ge(m, 0)) continue;
         }
 
+        Piece movedPc = pos.piece_on(from_sq(m));
         pos.do_move(m);
         if (!move_was_legal()) { pos.undo_move(m); continue; }
         if (NNUE::enabled) NNUE::apply(accStack[ss->ply + 1], accStack[ss->ply], pos.dirty());
         ++legal;
         ss->currentMove = m;
+        ss->contSlice = &contHist[movedPc][to_sq(m)];
         int score = -qsearch(ss + 1, -beta, -alpha);
         pos.undo_move(m);
 
@@ -346,6 +363,7 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
             pos.do_null_move();
             if (NNUE::enabled) NNUE::apply(accStack[ss->ply + 1], accStack[ss->ply], pos.dirty());
             ss->currentMove = MOVE_NULL;
+            ss->contSlice = nullptr;
             (ss + 1)->excludedMove = MOVE_NONE;
             int nullScore = -negamax(ss + 1, -beta, -beta + 1, depth - R, !cutNode);
             pos.undo_null_move();
@@ -412,6 +430,14 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
                 extension = -1;
         }
 
+        Piece movedPc = pos.piece_on(from_sq(m));
+        int statScore = 0;
+        if (isQuiet) {
+            statScore = 2 * history[us][from_sq(m)][to_sq(m)];
+            if (ss->ply > 0 && (ss - 1)->contSlice) statScore += (*(ss - 1)->contSlice)[movedPc][to_sq(m)];
+            if (ss->ply > 1 && (ss - 2)->contSlice) statScore += (*(ss - 2)->contSlice)[movedPc][to_sq(m)];
+        }
+
         pos.do_move(m);
         if (!move_was_legal()) { pos.undo_move(m); continue; }
         if (NNUE::enabled) NNUE::apply(accStack[ss->ply + 1], accStack[ss->ply], pos.dirty());
@@ -419,6 +445,7 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
         ++moveCount;
         ss->moveCount = moveCount;
         ss->currentMove = m;
+        ss->contSlice = &contHist[movedPc][to_sq(m)];
         if (isQuiet && quietCount < 64) quietsTried[quietCount++] = m;
 
         if (extension == 0 && givesCheck && (pvNode || pos.see_ge(m, -100)))
@@ -433,6 +460,7 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
             if (depth >= 3 && moveCount >= (pvNode ? 4 : 2) && !givesCheck && !inCheck) {
                 r = reduction(depth, moveCount, improving, pvNode);
                 if (!isQuiet) r = r > 1 ? r - 1 : 0;
+                else r -= std::clamp(statScore / 14000, -1, 1);   // at most one ply either way
                 if (r > newDepth - 1) r = newDepth - 1;
                 if (r < 0) r = 0;
             }
@@ -468,11 +496,22 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
                         if (prev != MOVE_NONE && prev != MOVE_NULL)
                             counterMove[us][from_sq(prev)][to_sq(prev)] = m;
                         int bonus = std::min(depth * depth, 1200);
+                        auto cont_update = [&](Move mv, int b) {
+                            Piece pc = pos.piece_on(from_sq(mv));
+                            Square t = to_sq(mv);
+                            if (ss->ply > 0 && (ss - 1)->contSlice)
+                                update_hist16((*(ss - 1)->contSlice)[pc][t], b);
+                            if (ss->ply > 1 && (ss - 2)->contSlice)
+                                update_hist16((*(ss - 2)->contSlice)[pc][t], b);
+                        };
                         update_history(history[us][from_sq(m)][to_sq(m)], bonus);
+                        cont_update(m, bonus);
                         for (int q = 0; q < quietCount; ++q) {
                             Move qm = quietsTried[q];
-                            if (qm != m)
+                            if (qm != m) {
                                 update_history(history[us][from_sq(qm)][to_sq(qm)], -bonus);
+                                cont_update(qm, -bonus);
+                            }
                         }
                     }
                     break;
@@ -529,6 +568,7 @@ void Thread::search() {
         stack[i].excludedMove = MOVE_NONE;
         stack[i].killers[0] = stack[i].killers[1] = MOVE_NONE;
         stack[i].staticEval = VALUE_NONE;
+        stack[i].contSlice = nullptr;
         stack[i].pv[0] = MOVE_NONE;
     }
     SearchStack* ss = &stack[2];
