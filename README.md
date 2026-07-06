@@ -27,14 +27,16 @@ on, single thread, 64 MB hash each, TC 15+0.15, 400 games:
 
 | Opponent (anchor) | CCRL | IxEngine score |
 |---|---|---|
-| Cheng4 0.38 | 2906 | 74% |
-| Senpai 1.0 | 2985 | 56% |
-| Inanis 1.6.0 | 3048 | 63% |
-| Bit-Genie 9 | 3098 | 64% |
+| Cheng4 0.38 | 2906 | 84% |
+| Senpai 1.0 | 2985 | 70% |
+| Inanis 1.6.0 | 3048 | 64% |
+| Bit-Genie 9 | 3098 | 66% |
 
-**IxEngine ≈ 3115 (95% CI ±30)** on the CCRL blitz-equivalent scale — up from 3088
-after TT prefetch + LTO/PGO (+13% NNUE nps) and singular extensions (+16 Elo at
-both test TCs, SPRT-gated).
+**IxEngine ≈ 3173 (95% CI ±30)** on the CCRL blitz-equivalent scale — up from 3088
+in two SPRT-gated batches: speed (TT prefetch, LTO/PGO) + singular extensions
+(+27), then time management + countermoves + continuation history (+58). The
+pool is starting to saturate (84% vs the weakest anchor); stronger anchors are
+due before the next milestone.
 
 This is a *blitz-anchored approximation*, not a true CCRL 40/40 result: strength
 shifts with time control, and the per-opponent scores aren't perfectly monotonic
@@ -51,7 +53,9 @@ top, measured by self-play SPRT.
   delta pruning), **null-move pruning**, **LMR**, reverse-futility / late-move /
   SEE pruning, check extensions, **singular extensions + multicut**, mate-distance
   pruning.
-- Move ordering: TT move → MVV-LVA + SEE captures → killers → history → quiets.
+- Move ordering: TT move → MVV-LVA + SEE captures → killers → countermove →
+  butterfly + 1/2-ply continuation history.
+- Time management: soft limit scaled by best-move stability and score trend.
 - **Lazy SMP** multithreading over a shared TT (the `Threads` option).
 - Hand-tuned eval: tapered PeSTO piece-square tables, mobility, king safety (ring
   attacks + pawn shelter), pawn structure (doubled / isolated / passed), bishop
