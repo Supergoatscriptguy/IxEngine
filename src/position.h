@@ -4,8 +4,8 @@
 
 namespace ix {
 
-// Pieces that changed on the last move (for incremental NNUE accumulators).
-// from == SQ_NONE means the piece appeared; to == SQ_NONE means it was removed.
+// What the last move changed, for the NNUE accumulator. from == SQ_NONE:
+// piece appeared; to == SQ_NONE: piece removed.
 struct DirtyPiece {
     int n;
     Piece pc[3];
@@ -14,14 +14,14 @@ struct DirtyPiece {
     void add(Piece p, Square f, Square t) { pc[n] = p; from[n] = f; to[n] = t; ++n; }
 };
 
-// Saved irreversible state, pushed on do_move / popped on undo_move.
 struct StateInfo {
     int castlingRights;
     Square epSquare;
     int halfmoveClock;
+    int pliesFromNull;   // repetition detection must not look past a null move
     U64 key;
     Piece captured;
-    Bitboard checkers; // pieces giving check in this position
+    Bitboard checkers;
     DirtyPiece dirty;
 };
 
@@ -29,13 +29,12 @@ class Position {
 public:
     Position() { clear(); }
     Position(const Position& o) { *this = o; }
-    Position& operator=(const Position& o); // deep copy that re-anchors `st`
+    Position& operator=(const Position& o);
 
     void set(const std::string& fen);
     void set_startpos();
     std::string fen() const;
 
-    // --- piece / occupancy queries ---
     Bitboard pieces() const { return byColor[WHITE] | byColor[BLACK]; }
     Bitboard pieces(Color c) const { return byColor[c]; }
     Bitboard pieces(PieceType pt) const { return byType[pt]; }
@@ -59,33 +58,26 @@ public:
     bool in_check() const { return st->checkers != 0; }
     int game_ply() const { return gamePly; }
 
-    // --- attack detection ---
     Bitboard attackers_to(Square s, Bitboard occ) const;
     Bitboard attackers_to(Square s) const { return attackers_to(s, pieces()); }
     bool is_attacked(Square s, Color by) const;
 
-    // --- make / unmake ---
     void do_move(Move m);
     void undo_move(Move m);
     void do_null_move();
     void undo_null_move();
 
-    // Static Exchange Evaluation: is the capture/move worth at least `threshold`?
-    bool see_ge(Move m, int threshold) const;
+    bool see_ge(Move m, int threshold) const;   // SEE >= threshold?
 
     bool is_repetition() const;
-    bool is_draw() const; // 50-move or repetition or insufficient material
+    bool is_draw() const;   // 50-move, repetition, bare kings
     bool has_non_pawn_material(Color c) const {
         return pieces(c, KNIGHT, BISHOP) | pieces(c, ROOK) | pieces(c, QUEEN);
     }
 
-    // Phase for tapered eval (0 = endgame .. 24 = full midgame).
-    int game_phase() const;
-
-    bool is_pseudo_legal(Move m) const; // sanity-check a TT/killer move
+    int game_phase() const;   // 0 = endgame .. 24 = opening
     bool gives_check(Move m) const;
-
-    std::string to_string() const; // ASCII board, for debugging
+    std::string to_string() const;
 
 private:
     void clear();
@@ -103,8 +95,7 @@ private:
     StateInfo states[1024];
     StateInfo* st;
 
-    // Full key history (from game start) for repetition detection.
-    U64 history[2048];
+    U64 history[2048];   // every key since game start, for repetitions
     int historyCount;
 };
 

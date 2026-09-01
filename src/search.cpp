@@ -30,6 +30,7 @@ std::string move_to_uci(Move m) {
 namespace Search {
 
 std::atomic<bool> stopFlag{false};
+std::atomic<bool> stopRequested{false};   // "stop"/"quit" from the GUI
 int moveOverhead = 25;
 
 namespace {
@@ -45,18 +46,17 @@ struct SearchStack {
     Move killers[2];
     int staticEval;
     int moveCount;
-    PieceToHist* contSlice;   // continuation-history slice for the move made here
+    PieceToHist* contSlice;   // contHist[pc][to] of the move played here
     Move pv[MAX_PLY + 1];
 };
 
-// One independent searcher. Lazy SMP runs several of these over a shared TT;
-// per-thread history naturally diversifies what each explores.
+// One searcher; lazy SMP runs several over the shared TT.
 struct Thread {
     Position pos;
     SearchStack stack[MAX_PLY + 16];
-    NNUE::Accumulator accStack[MAX_PLY + 16];   // indexed by ply; incremental NNUE
+    NNUE::Accumulator accStack[MAX_PLY + 16];   // by ply
     int history[COLOR_NB][SQUARE_NB][SQUARE_NB];
-    Move counterMove[COLOR_NB][SQUARE_NB][SQUARE_NB];   // reply that refuted [us][prevFrom][prevTo]
+    Move counterMove[COLOR_NB][SQUARE_NB][SQUARE_NB];   // [us][prevFrom][prevTo]
     int16_t contHist[PIECE_NB][SQUARE_NB][PIECE_NB][SQUARE_NB];   // [prevPc][prevTo][pc][to]
     int64_t nodes = 0;
     int selDepth = 0;
@@ -103,7 +103,7 @@ Limits limits;
 Clock::time_point startTime;
 int64_t optimumTime = 0, maximumTime = 0;
 bool useTimeLimit = false;
-bool g_silent = false;   // suppress info output (data generation)
+bool g_silent = false;   // datagen: no info lines
 
 int LMRTable[64][64];
 
@@ -327,7 +327,7 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
     Move ttMove = root ? rootBestMove : (ttHit ? tte->move() : MOVE_NONE);
     int ttValue = ttHit ? value_from_tt(tte->value(), ss->ply) : VALUE_NONE;
     int ttDepth = ttHit ? tte->depth() : -1;
-    Bound ttBound = ttHit ? tte->bound() : BOUND_NONE;   // snapshot: child searches may replace *tte
+    Bound ttBound = ttHit ? tte->bound() : BOUND_NONE;   // *tte can be replaced by children
 
     if (!pvNode && !excluded && ttHit && ttDepth >= depth && ttValue != VALUE_NONE
         && (ttBound & (ttValue >= beta ? BOUND_LOWER : BOUND_UPPER)))
@@ -408,10 +408,7 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
             }
         }
 
-        // Singular extension: if the TT move beats a lowered bound at reduced
-        // depth while every alternative fails low, it is the only good move --
-        // search it one ply deeper. If alternatives also beat the bound, the
-        // node is likely a cut-node whichever move we pick (multicut).
+        // Singular extension / multicut on the TT move.
         int extension = 0;
         if (!root && !excluded && depth >= 8 && m == ttMove
             && ttValue != VALUE_NONE && std::abs(ttValue) < VALUE_MATE_IN_MAX_PLY
@@ -429,6 +426,9 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
             else if (ttValue >= beta)
                 extension = -1;
         }
+
+        if (extension == 0 && givesCheck && (pvNode || pos.see_ge(m, -100)))
+            extension = 1;
 
         Piece movedPc = pos.piece_on(from_sq(m));
         int statScore = 0;
@@ -448,8 +448,6 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
         ss->contSlice = &contHist[movedPc][to_sq(m)];
         if (isQuiet && quietCount < 64) quietsTried[quietCount++] = m;
 
-        if (extension == 0 && givesCheck && (pvNode || pos.see_ge(m, -100)))
-            extension = 1;
         int newDepth = depth - 1 + extension;
 
         int score;
@@ -460,7 +458,7 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
             if (depth >= 3 && moveCount >= (pvNode ? 4 : 2) && !givesCheck && !inCheck) {
                 r = reduction(depth, moveCount, improving, pvNode);
                 if (!isQuiet) r = r > 1 ? r - 1 : 0;
-                else r -= std::clamp(statScore / 14000, -1, 1);   // at most one ply either way
+                else r -= std::clamp(statScore / 14000, -1, 1);
                 if (r > newDepth - 1) r = newDepth - 1;
                 if (r < 0) r = 0;
             }
@@ -578,7 +576,7 @@ void Thread::search() {
     int maxDepth = limits.depth > 0 ? limits.depth : MAX_PLY - 1;
     int score = 0;
     Move lastBest = MOVE_NONE;
-    int stableCnt = 0;       // consecutive iterations with the same best move
+    int stableCnt = 0;
     int prevIterScore = 0;
 
     for (int depth = 1; depth <= maxDepth; ++depth) {
@@ -616,9 +614,8 @@ void Thread::search() {
         if (id == 0) print_info(depth, selDepth, score, ss);
         if (stopFlag) break;
 
-        // Only the main thread enforces the soft time limit and stops the rest.
-        // Spend less once the best move has been stable for several iterations,
-        // more while it keeps flipping or the score has just dropped.
+        // Soft limit (main thread only): less time when the best move is stable,
+        // more when it keeps changing or the score just dropped.
         if (id == 0 && useTimeLimit) {
             double fac = 1.25 - 0.08 * std::min(stableCnt, 6);
             if (scoreDropping) fac *= 1.3;
@@ -675,14 +672,18 @@ void think() {
     for (size_t i = 1; i < Threads.size(); ++i)
         Threads[i]->th = std::thread(&Thread::search, Threads[i].get());
 
-    Threads[0]->search();        // main thread searches here and prints
+    Threads[0]->search();
     stopFlag = true;
 
     for (size_t i = 1; i < Threads.size(); ++i)
         if (Threads[i]->th.joinable()) Threads[i]->th.join();
 
+    // "go infinite" must not answer until the GUI says stop.
+    while (limits.infinite && !stopRequested)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
     Move best = Threads[0]->rootBestMove;
-    if (best == MOVE_NONE) {     // ultra-short time: grab any legal move
+    if (best == MOVE_NONE) {     // stopped before depth 1 finished
         Move mv[MAX_MOVES];
         int n = generate(Threads[0]->pos, mv, GEN_ALL);
         for (int i = 0; i < n; ++i)
@@ -722,10 +723,11 @@ void start(Position& pos, const Limits& lim) {
     uciRootPos = &pos;
     limits = lim;
     stopFlag = false;
+    stopRequested = false;
     coordinator = std::thread(think);
 }
 
-void stop() { stopFlag = true; }
+void stop() { stopRequested = true; stopFlag = true; }
 
 void wait() {
     if (coordinator.joinable()) coordinator.join();
