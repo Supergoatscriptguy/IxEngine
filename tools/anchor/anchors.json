@@ -1,5 +1,5 @@
 {
-  "_comment": "Permanent CCRL-anchor config. Opponents are FIXED at their published CCRL ratings (read from the official computerchess.org.uk list at the /4040/ path, which CCRL now brands 'CCRL 40/15'); the rig solves only for IxEngine. Re-run after any upgrade: python tools/anchor/run_anchor.py (or run_anchor.bat). Keep opponents/anchors/conditions stable so runs stay comparable. Paths are relative to the engine root. All anchor ratings are 1-CPU figures, matching IxEngine at Threads=1.",
+  "_comment": "Permanent CCRL-anchor config. Opponents are FIXED at their published CCRL 40/15 ratings; the rig solves only for IxEngine. Pool refreshed Sept 2026 (the June pool saturated at 84% vs its weakest member; it is kept in anchors-2026-06.json). Runs against different pools are not directly comparable, so history.csv rows carry the pool in their tag. Paths are relative to the engine root. All anchor ratings are 1-CPU figures.",
   "tc": "15+0.15",
   "games_total": 400,
   "concurrency": 8,
@@ -7,36 +7,41 @@
   "ixengine": {
     "name": "IxEngine 1.0",
     "cmd": "bin/ixchess-engine.exe",
-    "options": { "Threads": 1, "EvalFile": "nets/ix-gen2.nnue" }
+    "options": {
+      "Threads": 1
+    }
   },
-  "common_options": { "Threads": 1, "OwnBook": false },
+  "common_options": {
+    "Threads": 1,
+    "OwnBook": false
+  },
   "opponents": [
     {
-      "name": "Cheng4 0.38",
-      "version": "Cheng4 0.38 64-bit",
-      "ccrl_4040": 2906,
-      "cmd": "tools/anchor/engines/cheng4/cheng4/cheng4_x64.exe",
+      "name": "Halogen 10",
+      "version": "Halogen 10 64-bit",
+      "ccrl_4040": 3194,
+      "cmd": "tools/anchor/engines/halogen/Halogen10-x64-popcnt-avx2.exe",
       "options": {}
     },
     {
-      "name": "Senpai 1.0",
-      "version": "Senpai 1.0 64-bit",
-      "ccrl_4040": 2985,
-      "cmd": "tools/anchor/engines/senpai/Senpai1.0_sse42.exe",
+      "name": "Weiss 2.0",
+      "version": "Weiss 2.0 64-bit",
+      "ccrl_4040": 3265,
+      "cmd": "tools/anchor/engines/weiss/weiss-popcnt.exe",
       "options": {}
     },
     {
-      "name": "Inanis 1.6.0",
-      "version": "Inanis 1.6.0 64-bit",
-      "ccrl_4040": 3048,
-      "cmd": "tools/anchor/engines/inanis/inanis.exe",
+      "name": "Zahak 10.0",
+      "version": "Zahak 10.0 64-bit",
+      "ccrl_4040": 3292,
+      "cmd": "tools/anchor/engines/zahak/zahak-windows-amd64-10.0-avx.exe",
       "options": {}
     },
     {
-      "name": "Bit-Genie 9",
-      "version": "Bit-Genie 9 64-bit",
-      "ccrl_4040": 3098,
-      "cmd": "tools/anchor/engines/bit-genie/Bit-Genie-9-modern.exe",
+      "name": "Alexandria 3.5",
+      "version": "Alexandria 3.5 64-bit",
+      "ccrl_4040": 3321,
+      "cmd": "tools/anchor/engines/alexandria/Alexandria-3.5-x86-64-avx2.exe",
       "options": {}
     }
   ]
