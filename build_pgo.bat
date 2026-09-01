@@ -30,7 +30,7 @@ cd ..
 
 echo === PGO phase 2: training runs ===
 bin\ixchess-engine.exe bench || exit /b 1
-bin\ixchess-engine.exe datagen "%TEMP%\pgo_train.txt" 2 15000 7 bin\ix-gen2.nnue || exit /b 1
+bin\ixchess-engine.exe datagen "%TEMP%\pgo_train.txt" 2 15000 7 || exit /b 1
 del "%TEMP%\pgo_train.txt" 2>nul
 
 echo === PGO phase 3: optimized re-link ===
