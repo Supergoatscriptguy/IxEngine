@@ -1,4 +1,3 @@
-// UCI front-end and entry point for the Ixchess engine.
 #include "bitboard.h"
 #include "zobrist.h"
 #include "position.h"
@@ -22,7 +21,7 @@ using namespace ix;
 
 namespace {
 
-const char* ENGINE_NAME = "IxEngine 1.0";
+const char* ENGINE_NAME = "IxEngine 1.1";
 const char* ENGINE_AUTHOR = "supergoatscriptguy";
 
 bool limitStrength = false;
@@ -51,13 +50,12 @@ void cmd_position(Position& pos, std::istringstream& is) {
 
     if (token == "startpos") {
         pos.set_startpos();
-        is >> token; // expect "moves" or end
+        is >> token;
     } else if (token == "fen") {
         std::string fen;
         while (is >> token && token != "moves")
             fen += token + " ";
         pos.set(fen);
-        // token is now "moves" or the stream is exhausted
     } else {
         return;
     }
@@ -71,8 +69,8 @@ void cmd_position(Position& pos, std::istringstream& is) {
     }
 }
 
+// UCI_LimitStrength is just a depth cap; good enough for a sparring partner.
 int elo_depth_cap(int elo) {
-    // Crude mapping for UCI_LimitStrength compatibility (default off).
     int d = (elo - 1000) / 130;
     if (d < 1) d = 1;
     if (d > 20) d = 20;
@@ -101,7 +99,8 @@ void cmd_go(Position& pos, std::istringstream& is) {
 }
 
 void cmd_setoption(std::istringstream& is) {
-    Search::wait(); // never reconfigure while a search is running
+    Search::stop();
+    Search::wait();
     std::string token, name, value;
     is >> token; // "name"
     while (is >> token && token != "value") {
@@ -130,11 +129,10 @@ void cmd_setoption(std::istringstream& is) {
         std::cout << "info string NNUE " << (ok ? "loaded: " : "disabled (HCE): ")
                   << value << std::endl;
     }
-    // Ponder accepted but ignored (no pondering).
 }
 
-// Self-play data generation: writes "<FEN> | <score_cp_white> | <wdl_white>"
-// lines (the text format bullet's converter ingests). Quiet positions only.
+// Self-play datagen: "<fen> | <score cp, white pov> | <wdl white>" per line,
+// quiet positions only.
 void run_datagen(const std::string& outPath, int games, int64_t nodes, unsigned seed) {
     std::ofstream out(outPath);
     if (!out) { std::cerr << "datagen: cannot open " << outPath << "\n"; return; }
@@ -147,7 +145,6 @@ void run_datagen(const std::string& outPath, int games, int64_t nodes, unsigned 
         Position pos;
         pos.set_startpos();
 
-        // Random opening so games differ.
         bool aborted = false;
         int openPlies = 8 + int(rng() % 5);
         for (int k = 0; k < openPlies; ++k) {
@@ -166,17 +163,16 @@ void run_datagen(const std::string& outPath, int games, int64_t nodes, unsigned 
             Move mv[MAX_MOVES];
             int n = generate(pos, mv, GEN_ALL), ln = 0;
             for (int i = 0; i < n; ++i) if (legal_in(pos, mv[i])) ln++;
-            if (ln == 0) {                       // checkmate or stalemate
+            if (ln == 0) {
                 if (pos.in_check()) wdlWhite = (pos.side_to_move() == WHITE) ? 0.0 : 1.0;
                 break;
             }
-            if (pos.is_draw()) break;            // wdlWhite stays 0.5
+            if (pos.is_draw()) break;
 
             int score;
             Move bm = Search::datagen_search(pos, nodes, score);
             if (bm == MOVE_NONE) break;
 
-            // Record quiet, non-extreme positions (the useful training signal).
             if (!pos.in_check() && !is_capture(bm) && !is_promotion(bm) && std::abs(score) < 2000) {
                 int sw = (pos.side_to_move() == WHITE) ? score : -score;
                 recs.emplace_back(pos.fen(), sw);
@@ -235,7 +231,6 @@ int main(int argc, char** argv) {
     Position pos;
     pos.set_startpos();
 
-    // Allow `engine bench` / `engine perft N <fen>` from the command line.
     if (argc > 1) {
         std::string a1 = argv[1];
         if (a1 == "bench") { run_bench(); return 0; }
@@ -244,7 +239,7 @@ int main(int argc, char** argv) {
             int games = argc > 3 ? std::stoi(argv[3]) : 1000;
             int64_t nodes = argc > 4 ? std::stoll(argv[4]) : 5000;
             unsigned seed = argc > 5 ? (unsigned)std::stoul(argv[5]) : 1u;
-            if (argc > 6) NNUE::load(argv[6]);   // optional net (bootstrap datagen)
+            if (argc > 6) NNUE::load(argv[6]);
             run_datagen(outp, games, nodes, seed);
             return 0;
         }
@@ -262,7 +257,7 @@ int main(int argc, char** argv) {
 
     std::string line;
     while (std::getline(std::cin, line)) {
-        // Strip a leading UTF-8 BOM and any stray CR (some shells add these).
+        // PowerShell likes to prepend a BOM
         if (line.size() >= 3 && (unsigned char)line[0] == 0xEF
             && (unsigned char)line[1] == 0xBB && (unsigned char)line[2] == 0xBF)
             line.erase(0, 3);
@@ -288,9 +283,11 @@ int main(int argc, char** argv) {
         } else if (cmd == "setoption") {
             cmd_setoption(is);
         } else if (cmd == "ucinewgame") {
+            Search::stop();
             Search::wait();
             Search::clear();
         } else if (cmd == "position") {
+            Search::stop();
             Search::wait();
             cmd_position(pos, is);
         } else if (cmd == "go") {
@@ -298,7 +295,6 @@ int main(int argc, char** argv) {
         } else if (cmd == "stop") {
             Search::stop();
         } else if (cmd == "ponderhit") {
-            // treat as a normal continuation (no pondering implemented)
         } else if (cmd == "quit" || cmd == "exit") {
             Search::stop();
             Search::wait();

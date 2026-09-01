@@ -181,4 +181,4 @@ tools/
   anchor/        CCRL-anchored rating rig (run_anchor.py + solve.py)
 ```
 
-See [IMPROVEMENTS.md](IMPROVEMENTS.md) for the roadmap (NNUE next) and review notes.
+See [IMPROVEMENTS.md](IMPROVEMENTS.md) for what is next and what has already been tried and dropped.
