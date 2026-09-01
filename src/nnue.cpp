@@ -117,9 +117,21 @@ int evaluate(const Position& pos) {
     return eval_acc(acc, pos);
 }
 
+extern const unsigned char EmbeddedNet[];
+extern const unsigned long EmbeddedNetSize;
+
+// "<embedded>" is the net compiled into the binary, "<empty>" turns NNUE off,
+// anything else is a path.
 bool load(const std::string& path) {
     enabled = false;
-    if (path.empty() || path == "<empty>") return false;
+    if (path.empty() || path == "<empty>" || path == "none") return false;
+
+    if (path == "<embedded>") {
+        if (EmbeddedNetSize != sizeof(Network)) return false;
+        std::memcpy(&net, EmbeddedNet, sizeof(Network));
+        enabled = true;
+        return true;
+    }
 
     std::ifstream f(path, std::ios::binary);
     if (!f) return false;

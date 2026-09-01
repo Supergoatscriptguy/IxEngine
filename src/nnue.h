@@ -1,6 +1,6 @@
 #pragma once
 // 768 -> HL perspective net, SCReLU, piece-count output buckets, int16.
-// Off until a net is loaded through the EvalFile option.
+// The default net is embedded in the binary; EvalFile can swap it or turn it off.
 
 #include "types.h"
 #include "position.h"

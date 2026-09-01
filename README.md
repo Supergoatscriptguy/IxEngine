@@ -1,15 +1,16 @@
 # IxEngine
 
 A classical (alpha-beta) chess engine in C++17 — bitboards, PVS, a transposition
-table, Lazy SMP, a hand-tuned evaluation, and an optional NNUE net. It speaks UCI, so
-any GUI or script that drives Stockfish drives it too.
+table, Lazy SMP, and an NNUE evaluation trained on its own self-play (the hand-tuned
+eval is still there behind an option). It speaks UCI, so any GUI or script that
+drives Stockfish drives it too.
 
 ## Strength
 
-Two evaluations: the hand-crafted one (default) and an **optional NNUE net**
-(`EvalFile`). The NNUE is **bootstrapped over self-play generations** — each net
-generates better data, which trains a stronger net. SPRT vs the hand eval
-(self-play, 1 thread, 100 ms):
+Two evaluations: the **NNUE net compiled into the binary** (default) and the
+hand-crafted one (`EvalFile <empty>`). The NNUE is **bootstrapped over self-play
+generations** — each net generates better data, which trains a stronger net. SPRT
+vs the hand eval (self-play, 1 thread, 100 ms):
 
 | NNUE gen2 vs hand eval | Elo |
 |---|---|
@@ -61,8 +62,9 @@ top, measured by self-play SPRT.
   attacks + pawn shelter), pawn structure (doubled / isolated / passed), bishop
   pair, rooks on open/semi-open files and the 7th.
 - Move generation is perft-verified on the six standard positions.
-- Optional **NNUE evaluation** (`768→512` perspective, SCReLU, 8 buckets) with
-  incremental accumulators + AVX2 — trained by the included PyTorch pipeline.
+- **NNUE evaluation** (`768→512` perspective, SCReLU, 8 buckets) with incremental
+  accumulators + AVX2 — trained by the included PyTorch pipeline and embedded in
+  the exe at build time.
 
 ## Modes
 
@@ -71,9 +73,9 @@ web UI):
 
 | Mode | Settings |
 |---|---|
-| **Baseline** | `Threads 1`, hand-crafted eval |
-| **Upgraded** | `Threads N`, hand-crafted eval (Lazy SMP) |
-| **Maxxed** | NNUE eval (`EvalFile`) + `Threads N` |
+| **Baseline** | `Threads 1`, `EvalFile <empty>` (hand-crafted eval) |
+| **Upgraded** | `Threads N`, `EvalFile <empty>` (Lazy SMP) |
+| **Maxxed** | embedded NNUE + `Threads N` (the default) |
 
 ## Build (Windows / MSVC)
 
@@ -82,6 +84,7 @@ build.bat
 ```
 
 Finds `vcvars64.bat`, runs CMake (NMake, Release), writes `bin\ixchess-engine.exe`.
+Python is needed at build time to embed the net (`tools/embed_net.py`).
 By hand from a Developer Command Prompt:
 
 ```bat
@@ -100,6 +103,7 @@ MinGW/Clang also work (`-O3 -mpopcnt` off MSVC). CMake ≥ 3.15.
 | `Move Overhead` | spin | 25 | ms shaved off the clock for safety. |
 | `UCI_LimitStrength` | check | false | Weaken the engine. |
 | `UCI_Elo` | spin | 2850 | Target when limiting (1320–3000). |
+| `EvalFile` | string | `<embedded>` | `<embedded>` = built-in net, `<empty>` = hand eval, or a path to another `.nnue`. |
 
 `go` understands `movetime`, `wtime/btime/winc/binc/movestogo`, `depth`, `nodes`,
 and `infinite` (+ `stop`).

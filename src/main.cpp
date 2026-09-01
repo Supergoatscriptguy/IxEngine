@@ -126,7 +126,7 @@ void cmd_setoption(std::istringstream& is) {
         uciElo = std::stoi(value);
     } else if (name == "EvalFile") {
         bool ok = NNUE::load(value);
-        std::cout << "info string NNUE " << (ok ? "loaded: " : "disabled (HCE): ")
+        std::cout << "info string NNUE " << (ok ? "loaded: " : "off, hand eval: ")
                   << value << std::endl;
     }
 }
@@ -227,6 +227,7 @@ int main(int argc, char** argv) {
     Eval::init();
     Search::init();
     TT.resize(64);
+    NNUE::load("<embedded>");
 
     Position pos;
     pos.set_startpos();
@@ -239,7 +240,7 @@ int main(int argc, char** argv) {
             int games = argc > 3 ? std::stoi(argv[3]) : 1000;
             int64_t nodes = argc > 4 ? std::stoll(argv[4]) : 5000;
             unsigned seed = argc > 5 ? (unsigned)std::stoul(argv[5]) : 1u;
-            if (argc > 6) NNUE::load(argv[6]);
+            if (argc > 6) NNUE::load(argv[6]);   // else the embedded net
             run_datagen(outp, games, nodes, seed);
             return 0;
         }
@@ -276,7 +277,7 @@ int main(int argc, char** argv) {
             std::cout << "option name Ponder type check default false\n";
             std::cout << "option name UCI_LimitStrength type check default false\n";
             std::cout << "option name UCI_Elo type spin default 2850 min 1320 max 3000\n";
-            std::cout << "option name EvalFile type string default <empty>\n";
+            std::cout << "option name EvalFile type string default <embedded>\n";
             std::cout << "uciok" << std::endl;
         } else if (cmd == "isready") {
             std::cout << "readyok" << std::endl;
