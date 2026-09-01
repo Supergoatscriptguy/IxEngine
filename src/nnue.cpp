@@ -18,15 +18,14 @@ namespace NNUE {
 bool enabled = false;
 
 struct Network {
-    int16_t ftWeights[INPUT * HL];        // feature transformer (feature-major)
+    int16_t ftWeights[INPUT * HL];        // feature-major
     int16_t ftBias[HL];
-    int16_t outWeights[BUCKETS][2 * HL];  // [bucket][own .. opp]
+    int16_t outWeights[BUCKETS][2 * HL];  // own half then opp half
     int16_t outBias[BUCKETS];
 };
 
 static Network net;
 
-// Feature index for a piece (colour pc, type pt, square sq) from `persp`'s view.
 static inline int feature(Color persp, Color pc, PieceType pt, Square sq) {
     int relColor = (pc == persp) ? 0 : 1;
     int relSq = (persp == WHITE) ? sq : (sq ^ 56);
@@ -64,7 +63,6 @@ void apply(Accumulator& dst, const Accumulator& src, const DirtyPiece& dp) {
     }
 }
 
-// SCReLU dot product: sum over i of clamp(acc[i],0,QA)^2 * w[i].
 static int64_t screlu_dot_scalar(const int16_t* acc, const int16_t* w) {
     int64_t s = 0;
     for (int i = 0; i < HL; ++i) {
@@ -75,8 +73,7 @@ static int64_t screlu_dot_scalar(const int16_t* acc, const int16_t* w) {
 }
 
 #if defined(__AVX2__)
-// 16-wide: clamp, then madd(a, a*w) accumulates a^2*w as int32 (safe since
-// output weights are clamped to +/-127, so a*w fits int16). Lanes summed in int64.
+// a*w fits int16 because the trainer clamps output weights to +/-127.
 static int64_t screlu_dot(const int16_t* acc, const int16_t* w) {
     const __m256i zero = _mm256_setzero_si256();
     const __m256i qa = _mm256_set1_epi16((short)QA);
@@ -129,7 +126,7 @@ bool load(const std::string& path) {
     f.read(reinterpret_cast<char*>(&net), sizeof(Network));
     if (!f || f.gcount() != std::streamsize(sizeof(Network))) return false;
     char extra;
-    if (f.read(&extra, 1)) return false; // trailing data => size/arch mismatch
+    if (f.read(&extra, 1)) return false;   // wrong size, wrong architecture
 
     enabled = true;
     return true;

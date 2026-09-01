@@ -6,20 +6,16 @@ namespace ix {
 Bitboard PawnAttacks[COLOR_NB][SQUARE_NB];
 Bitboard KnightAttacks[SQUARE_NB];
 Bitboard KingAttacks[SQUARE_NB];
-Bitboard BetweenBB[SQUARE_NB][SQUARE_NB];
-Bitboard LineBB[SQUARE_NB][SQUARE_NB];
 
 Magic RookMagics[SQUARE_NB];
 Magic BishopMagics[SQUARE_NB];
 
-// Backing storage for the magic attack tables.
 static Bitboard RookTable[102400];
 static Bitboard BishopTable[5248];
 
 namespace {
 
-// Reference slow slider attack used to build the magic tables and the
-// between/line tables. Walks each ray until it hits a blocker or the edge.
+// Slow ray walk, only used to build the magic tables.
 Bitboard sliding_attack(PieceType pt, Square sq, Bitboard occ) {
     Bitboard attacks = 0;
     const int rookDirs[4] = { 8, -8, 1, -1 };
@@ -31,9 +27,8 @@ Bitboard sliding_attack(PieceType pt, Square sq, Bitboard occ) {
         Square s = sq;
         while (true) {
             Square next = Square(s + d);
-            // Stop if we'd leave the board or wrap across a file edge.
             if (next < A1 || next > H8) break;
-            if (square_distance(s, next) > 2) break; // wrap guard for diagonal/horizontal
+            if (square_distance(s, next) > 2) break;   // wrapped around the edge
             s = next;
             attacks |= square_bb(s);
             if (occ & square_bb(s)) break;
@@ -42,7 +37,6 @@ Bitboard sliding_attack(PieceType pt, Square sq, Bitboard occ) {
     return attacks;
 }
 
-// xorshift64* PRNG with the "sparse" trick for finding magics fast.
 struct PRNG {
     U64 s;
     explicit PRNG(U64 seed) : s(seed) {}
@@ -54,7 +48,6 @@ struct PRNG {
 };
 
 void init_magics(PieceType pt, Bitboard table[], Magic magics[]) {
-    // Per-rank seeds (these reliably produce magics quickly on x86-64).
     static const U64 seeds[8] = {
         728, 10316, 55013, 32803, 12281, 15100, 16645, 255
     };
@@ -65,8 +58,6 @@ void init_magics(PieceType pt, Bitboard table[], Magic magics[]) {
     Bitboard* attacks = table;
 
     for (Square s = A1; s <= H8; s = Square(s + 1)) {
-        // Relevant occupancy mask: exclude squares on the board edges that
-        // cannot affect the attack set for this square.
         Bitboard edges = ((RANK_1_BB | RANK_8_BB) & ~rank_bb(rank_of(s)))
                        | ((FILE_A_BB | FILE_H_BB) & ~file_bb(file_of(s)));
 
@@ -75,8 +66,6 @@ void init_magics(PieceType pt, Bitboard table[], Magic magics[]) {
         m.shift = 64 - popcount(m.mask);
         m.attacks = (s == A1) ? table : magics[s - 1].attacks + (1 << popcount(magics[s - 1].mask));
 
-        // Enumerate all subsets of the mask (Carry-Rippler) and record the
-        // reference attack for each.
         Bitboard b = 0;
         int size = 0;
         do {
@@ -89,12 +78,10 @@ void init_magics(PieceType pt, Bitboard table[], Magic magics[]) {
         PRNG rng(seeds[rank_of(s)]);
 
         for (int i = 0; i < size;) {
-            // Pick a candidate magic with a sufficiently "spread" product.
             m.magic = 0;
             while (popcount((m.magic * m.mask) >> 56) < 6)
                 m.magic = rng.sparse_rand();
 
-            // Verify it produces a constructive collision-free mapping.
             ++cnt;
             for (i = 0; i < size; ++i) {
                 unsigned idx = m.index(occupancy[i]);
@@ -102,7 +89,7 @@ void init_magics(PieceType pt, Bitboard table[], Magic magics[]) {
                     epoch[idx] = cnt;
                     m.attacks[idx] = reference[i];
                 } else if (m.attacks[idx] != reference[i]) {
-                    break; // collision; retry with a new magic
+                    break;
                 }
             }
         }
@@ -115,7 +102,6 @@ void init_magics(PieceType pt, Bitboard table[], Magic magics[]) {
 namespace Bitboards {
 
 void init() {
-    // Leaper attacks.
     for (Square s = A1; s <= H8; s = Square(s + 1)) {
         Bitboard b = square_bb(s);
         PawnAttacks[WHITE][s] = pawn_attacks_bb<WHITE>(b);
@@ -140,28 +126,8 @@ void init() {
         KingAttacks[s] = k;
     }
 
-    // Sliding attacks via magics.
     init_magics(ROOK, RookTable, RookMagics);
     init_magics(BISHOP, BishopTable, BishopMagics);
-
-    // Between/line tables for pins, checks, SEE, etc.
-    for (Square s1 = A1; s1 <= H8; s1 = Square(s1 + 1)) {
-        for (Square s2 = A1; s2 <= H8; s2 = Square(s2 + 1)) {
-            BetweenBB[s1][s2] = 0;
-            LineBB[s1][s2] = 0;
-            if (s1 == s2) continue;
-
-            for (PieceType pt : { BISHOP, ROOK }) {
-                if (sliding_attack(pt, s1, 0) & square_bb(s2)) {
-                    LineBB[s1][s2] = (sliding_attack(pt, s1, 0)
-                                      & sliding_attack(pt, s2, 0))
-                                     | square_bb(s1) | square_bb(s2);
-                    BetweenBB[s1][s2] = sliding_attack(pt, s1, square_bb(s2))
-                                        & sliding_attack(pt, s2, square_bb(s1));
-                }
-            }
-        }
-    }
 }
 
 std::string pretty(Bitboard b) {

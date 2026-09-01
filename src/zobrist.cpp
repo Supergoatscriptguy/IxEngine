@@ -29,8 +29,7 @@ void init() {
     for (int f = 0; f < 8; ++f)
         enpassant[f] = rng.rand64();
 
-    // Build all 16 castling combinations from 4 independent base keys so that
-    // partial-right updates compose consistently.
+    // one key per right, xor'd together so partial updates compose
     U64 base[4];
     for (int i = 0; i < 4; ++i) base[i] = rng.rand64();
     for (int cr = 0; cr < 16; ++cr) {

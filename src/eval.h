@@ -5,8 +5,7 @@ namespace ix {
 
 namespace Eval { void init(); }
 
-// Static evaluation in centipawns, from the side-to-move's perspective
-// (positive = good for the side to move).
+// Centipawns, side to move's point of view.
 int evaluate(const Position& pos);
 
 } // namespace ix

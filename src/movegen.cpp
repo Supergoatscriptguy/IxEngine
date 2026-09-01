@@ -6,10 +6,10 @@ namespace {
 
 inline Move* add_promotions(Move* m, Square from, Square to, bool capture) {
     int base = capture ? FLAG_PROMO_N_CAP : FLAG_PROMO_N;
-    *m++ = make_move(from, to, base + 3); // queen first (most likely best)
-    *m++ = make_move(from, to, base + 0); // knight
-    *m++ = make_move(from, to, base + 2); // rook
-    *m++ = make_move(from, to, base + 1); // bishop
+    *m++ = make_move(from, to, base + 3);   // queen first
+    *m++ = make_move(from, to, base + 0);
+    *m++ = make_move(from, to, base + 2);
+    *m++ = make_move(from, to, base + 1);
     return m;
 }
 
@@ -19,8 +19,8 @@ Move* gen_pawns(const Position& pos, Move* m, GenType type) {
     constexpr Bitboard PromoRank = (C == WHITE) ? RANK_7_BB : RANK_2_BB;
     constexpr Bitboard DblRank = (C == WHITE) ? RANK_3_BB : RANK_6_BB;
     constexpr int Up = (C == WHITE) ? 8 : -8;
-    constexpr int CapL = (C == WHITE) ? 7 : -9;  // toward a-file side
-    constexpr int CapR = (C == WHITE) ? 9 : -7;  // toward h-file side
+    constexpr int CapL = (C == WHITE) ? 7 : -9;
+    constexpr int CapR = (C == WHITE) ? 9 : -7;
 
     const Bitboard pawns = pos.pieces(C, PAWN);
     const Bitboard empty = ~pos.pieces();
@@ -32,7 +32,6 @@ Move* gen_pawns(const Position& pos, Move* m, GenType type) {
     const bool wantCaps = (type != GEN_QUIETS);
     const bool wantQuiets = (type != GEN_CAPTURES);
 
-    // --- non-promoting pushes (quiet) ---
     if (wantQuiets) {
         Bitboard push1 = shift<Up>(rest) & empty;
         Bitboard push2 = shift<Up>(push1 & DblRank) & empty;
@@ -42,7 +41,6 @@ Move* gen_pawns(const Position& pos, Move* m, GenType type) {
         while (t) { Square to = pop_lsb(t); *m++ = make_move(Square(to - 2 * Up), to, FLAG_DOUBLE_PUSH); }
     }
 
-    // --- non-promoting captures + en passant ---
     if (wantCaps) {
         Bitboard l = shift<CapL>(rest) & enemies;
         Bitboard r = shift<CapR>(rest) & enemies;
@@ -56,7 +54,6 @@ Move* gen_pawns(const Position& pos, Move* m, GenType type) {
         }
     }
 
-    // --- promotions (pushes + captures) ---
     if (wantCaps && promoPawns) {
         Bitboard push = shift<Up>(promoPawns) & empty;
         Bitboard l = shift<CapL>(promoPawns) & enemies;

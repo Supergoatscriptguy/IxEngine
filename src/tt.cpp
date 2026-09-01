@@ -12,11 +12,9 @@ TranspositionTable TT;
 void TTEntry::save(U64 k, int v, Bound b, int d, Move m, int ev, uint8_t gen) {
     uint16_t k16 = uint16_t(k >> 48);
 
-    // Preserve any existing best move for this slot unless we have a new one.
     if (m || k16 != key16)
         move16 = uint16_t(m);
 
-    // Overwrite when: exact bound, different position, or not much shallower.
     if (b == BOUND_EXACT || k16 != key16 || d + 4 > depth8) {
         key16 = k16;
         value16 = int16_t(v);
@@ -31,7 +29,6 @@ void TranspositionTable::resize(size_t mb) {
     size_t bytes = mb * 1024 * 1024;
     size_t n = bytes / sizeof(Cluster);
 
-    // Largest power of two not exceeding n (enables fast index masking).
     size_t pow2 = 1;
     while (pow2 * 2 <= n) pow2 *= 2;
     clusterCount = pow2;
@@ -51,15 +48,13 @@ TTEntry* TranspositionTable::probe(U64 key, bool& found) {
 
     for (int i = 0; i < CLUSTER_SIZE; ++i) {
         if (cl[i].key16 == k16 && cl[i].occupied()) {
-            // Refresh generation so the entry survives replacement.
             cl[i].genBound8 = uint8_t(generation8 | cl[i].bound());
             found = true;
             return &cl[i];
         }
     }
 
-    // Choose a victim: lowest (depth - relativeAge).
-    TTEntry* replace = cl;
+    TTEntry* replace = cl;   // victim: lowest depth minus age
     for (int i = 1; i < CLUSTER_SIZE; ++i) {
         int rScore = replace->depth8
                    - ((GEN_CYCLE + generation8 - replace->genBound8) & GEN_MASK);

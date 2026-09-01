@@ -3,8 +3,7 @@
 
 namespace ix {
 
-// PeSTO material values and piece-square tables, laid out rank-8-first
-// (index 0 = a8). A white piece on square s reads [s ^ 56]; black reads [s].
+// PeSTO tables, a8 first: white reads [s ^ 56], black reads [s].
 static const int mg_value[6] = { 82, 337, 365, 477, 1025, 0 };
 static const int eg_value[6] = { 94, 281, 297, 512, 936, 0 };
 
@@ -122,7 +121,6 @@ static const int eg_pst[6][64] = {
         -53,-34,-21,-11,-28,-14,-24,-43 }
 };
 
-// Stockfish "classical" mobility bonuses [mg, eg] by attack count.
 struct S { int mg, eg; };
 static const S MobN[9] = {
     {-62,-81},{-53,-56},{-12,-31},{-4,-16},{3,5},{13,11},{22,17},{28,20},{33,25} };
@@ -138,7 +136,6 @@ static const S MobQ[28] = {
     {72,127},{74,135},{76,142},{78,149},{79,150},{80,153},{81,158},{83,159},
     {85,164},{85,169},{86,178},{87,182} };
 
-// Tunable term weights.
 static const int BishopPairMG = 24, BishopPairEG = 42;
 static const int RookOpenMG = 26, RookOpenEG = 12;
 static const int RookSemiMG = 12, RookSemiEG = 6;
@@ -149,10 +146,8 @@ static const int Tempo = 14;
 static const int PassedMG[8] = { 0, 5, 12, 20, 35, 60, 95, 0 };
 static const int PassedEG[8] = { 0, 12, 22, 38, 62, 100, 160, 0 };
 
-// King-attack weights per attacked king-ring square.
 static const int KingAtkN = 2, KingAtkB = 2, KingAtkR = 3, KingAtkQ = 5;
 
-// Precomputed pawn-structure masks.
 static Bitboard AdjacentFiles[8];
 static Bitboard ForwardFile[COLOR_NB][SQUARE_NB];
 static Bitboard PassedMask[COLOR_NB][SQUARE_NB];
@@ -188,7 +183,6 @@ void init() {
 
 static inline int clamp_file(int f) { return f < 1 ? 1 : (f > 6 ? 6 : f); }
 
-// King shelter penalty for color `us` (linear, midgame term).
 static int king_shelter(const Position& pos, Color us) {
     Square ksq = pos.king_sq(us);
     int kf = clamp_file(file_of(ksq));
@@ -197,11 +191,11 @@ static int king_shelter(const Position& pos, Color us) {
     for (int f = kf - 1; f <= kf + 1; ++f) {
         Bitboard fp = ownPawns & file_bb(File(f));
         if (!fp) {
-            penalty += 18; // (half-)open file next to the king
+            penalty += 18;
         } else {
             Square nearest = (us == WHITE) ? lsb(fp) : msb(fp);
             int dist = rank_distance(nearest, ksq);
-            penalty += (dist - 1) * 6; // pawn advanced away from the king
+            penalty += (dist - 1) * 6;
         }
     }
     return penalty;
@@ -210,9 +204,8 @@ static int king_shelter(const Position& pos, Color us) {
 int evaluate(const Position& pos) {
     if (NNUE::enabled) return NNUE::evaluate(pos);
 
-    int mg = 0, eg = 0; // accumulators, White's perspective
+    int mg = 0, eg = 0;   // white's point of view
 
-    // --- material + piece-square tables ---
     for (int c = 0; c < COLOR_NB; ++c) {
         int sign = (c == WHITE) ? 1 : -1;
         for (int pt = PAWN; pt <= KING; ++pt) {
@@ -235,25 +228,22 @@ int evaluate(const Position& pos) {
     mobArea[WHITE] = ~(pos.pieces(WHITE, KING) | pos.pieces(WHITE, QUEEN) | wPawns | bPawnAtt);
     mobArea[BLACK] = ~(pos.pieces(BLACK, KING) | pos.pieces(BLACK, QUEEN) | bPawns | wPawnAtt);
 
-    Bitboard enemyRing[COLOR_NB]; // ring of the king attacked by color c's pieces
+    Bitboard enemyRing[COLOR_NB];
     enemyRing[WHITE] = KingRing[pos.king_sq(BLACK)];
     enemyRing[BLACK] = KingRing[pos.king_sq(WHITE)];
 
-    int kingDanger[COLOR_NB] = { 0, 0 };   // danger to each color's own king
+    int kingDanger[COLOR_NB] = { 0, 0 };
     int kingAttackers[COLOR_NB] = { 0, 0 };
 
-    // --- piece activity: mobility, king attacks, rook files, bishop pair ---
     for (int c = 0; c < COLOR_NB; ++c) {
         Color us = Color(c), them = ~us;
         int sign = (us == WHITE) ? 1 : -1;
         Bitboard ring = enemyRing[us];
 
-        // Bishop pair
         if (pos.count(us, BISHOP) >= 2) { mg += sign * BishopPairMG; eg += sign * BishopPairEG; }
 
         Bitboard b;
 
-        // Knights
         b = pos.pieces(us, KNIGHT);
         while (b) {
             Square s = pop_lsb(b);
@@ -263,7 +253,6 @@ int evaluate(const Position& pos) {
             if (a & ring) { kingAttackers[them]++; kingDanger[them] += KingAtkN * popcount(a & ring); }
         }
 
-        // Bishops
         b = pos.pieces(us, BISHOP);
         while (b) {
             Square s = pop_lsb(b);
@@ -273,7 +262,6 @@ int evaluate(const Position& pos) {
             if (a & ring) { kingAttackers[them]++; kingDanger[them] += KingAtkB * popcount(a & ring); }
         }
 
-        // Rooks (with open/semi-open file and 7th-rank bonuses)
         b = pos.pieces(us, ROOK);
         Bitboard ourPawns = pos.pieces(us, PAWN);
         Bitboard theirPawns = pos.pieces(them, PAWN);
@@ -292,7 +280,6 @@ int evaluate(const Position& pos) {
             if (relative_rank(us, s) == RANK_7) { mg += sign * Rook7thMG; eg += sign * Rook7thEG; }
         }
 
-        // Queens
         b = pos.pieces(us, QUEEN);
         while (b) {
             Square s = pop_lsb(b);
@@ -304,7 +291,6 @@ int evaluate(const Position& pos) {
         }
     }
 
-    // --- pawn structure: doubled, isolated, passed ---
     for (int c = 0; c < COLOR_NB; ++c) {
         Color us = Color(c), them = ~us;
         int sign = (us == WHITE) ? 1 : -1;
@@ -323,13 +309,12 @@ int evaluate(const Position& pos) {
         }
     }
 
-    // --- king safety: dynamic danger (needs >=2 attackers) + shelter ---
     for (int c = 0; c < COLOR_NB; ++c) {
         Color us = Color(c);
         int sh = king_shelter(pos, us);
         int danger = kingDanger[us] + sh;
-        int penalty = sh; // shelter is always relevant
-        if (kingAttackers[us] >= 2) {
+        int penalty = sh;
+        if (kingAttackers[us] >= 2) {   // one attacker is never a real attack
             int quad = danger * danger / 16;
             if (quad > 600) quad = 600;
             penalty += quad;
@@ -337,7 +322,6 @@ int evaluate(const Position& pos) {
         mg += (us == WHITE) ? -penalty : penalty;
     }
 
-    // --- taper + tempo ---
     int phase = pos.game_phase();
     int score = (mg * phase + eg * (24 - phase)) / 24;
     score += (pos.side_to_move() == WHITE) ? Tempo : -Tempo;

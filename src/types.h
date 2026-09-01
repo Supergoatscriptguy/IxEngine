@@ -1,9 +1,5 @@
 #pragma once
-// Core types, enums and bit-manipulation helpers for the Ixchess engine.
-//
-// Board convention: Little-Endian Rank-File (LERF) mapping.
-//   a1 = 0, b1 = 1, ... h1 = 7, a2 = 8, ... h8 = 63.
-//   file_of(sq) = sq & 7,  rank_of(sq) = sq >> 3.
+// a1 = 0 ... h1 = 7, a2 = 8 ... h8 = 63
 
 #include <cstdint>
 #include <string>
@@ -28,8 +24,7 @@ enum PieceType : int {
     NO_PIECE_TYPE = 6, PIECE_TYPE_NB = 6
 };
 
-// Piece = (color << 3) | type. Leaves a gap (6,7) but makes color/type
-// extraction a shift/mask. NO_PIECE sits at 14.
+// (color << 3) | type
 enum Piece : int {
     W_PAWN = 0, W_KNIGHT, W_BISHOP, W_ROOK, W_QUEEN, W_KING,
     B_PAWN = 8, B_KNIGHT, B_BISHOP, B_ROOK, B_QUEEN, B_KING,
@@ -58,9 +53,8 @@ enum Rank : int { RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8
 inline File file_of(Square s) { return File(s & 7); }
 inline Rank rank_of(Square s) { return Rank(s >> 3); }
 inline Square make_square(File f, Rank r) { return Square((r << 3) | f); }
-inline Square flip_rank(Square s) { return Square(s ^ 56); }   // vertical mirror
+inline Square flip_rank(Square s) { return Square(s ^ 56); }
 
-// Manhattan-ish distances
 inline int rank_distance(Square a, Square b) {
     int x = int(rank_of(a)) - int(rank_of(b));
     return x < 0 ? -x : x;
@@ -71,10 +65,9 @@ inline int file_distance(Square a, Square b) {
 }
 inline int square_distance(Square a, Square b) {
     int rd = rank_distance(a, b), fd = file_distance(a, b);
-    return rd > fd ? rd : fd;   // Chebyshev distance
+    return rd > fd ? rd : fd;
 }
 
-// Relative rank from a color's perspective (RANK_8 is promotion for both).
 inline Rank relative_rank(Color c, Square s) {
     return Rank(int(rank_of(s)) ^ (c * 7));
 }
@@ -86,7 +79,6 @@ enum CastlingRight : int {
     ANY_CASTLING = 15
 };
 
-// Scores in centipawns. Mate scores count plies from the root.
 constexpr int VALUE_ZERO = 0;
 constexpr int VALUE_DRAW = 0;
 constexpr int VALUE_INFINITE = 32001;
@@ -98,10 +90,10 @@ constexpr int VALUE_MATED_IN_MAX_PLY = -VALUE_MATE_IN_MAX_PLY;
 inline int mate_in(int ply) { return VALUE_MATE - ply; }
 inline int mated_in(int ply) { return -VALUE_MATE + ply; }
 
-// Move packed into 16 bits: from (0-5), to (6-11), flags (12-15).
+// from (0-5), to (6-11), flag (12-15)
 using Move = uint16_t;
-constexpr Move MOVE_NONE = 0;   // a1a1, never a legal move
-constexpr Move MOVE_NULL = 65;  // a1b1, used as null-move sentinel
+constexpr Move MOVE_NONE = 0;
+constexpr Move MOVE_NULL = 65;   // a1b1, never legal
 
 enum MoveFlag : int {
     FLAG_QUIET = 0,
@@ -134,7 +126,6 @@ inline bool is_castle(Move m) {
     int f = move_flag(m);
     return f == FLAG_KING_CASTLE || f == FLAG_QUEEN_CASTLE;
 }
-// Promotion piece type (only valid when is_promotion()).
 inline PieceType promotion_type(Move m) {
     return PieceType(KNIGHT + (move_flag(m) & 3));
 }

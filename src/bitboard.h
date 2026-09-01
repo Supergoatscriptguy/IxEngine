@@ -1,11 +1,8 @@
 #pragma once
-// Bitboard constants, attack tables, and (fancy) magic-bitboard sliders.
-
 #include "types.h"
 
 namespace ix {
 
-// File / rank masks
 constexpr Bitboard FILE_A_BB = 0x0101010101010101ULL;
 constexpr Bitboard FILE_B_BB = FILE_A_BB << 1;
 constexpr Bitboard FILE_C_BB = FILE_A_BB << 2;
@@ -30,7 +27,6 @@ inline Bitboard rank_bb(Rank r) { return RANK_1_BB << (8 * r); }
 
 inline bool test_bit(Bitboard b, Square s) { return b & square_bb(s); }
 
-// Directional one-step shifts that mask off wraps.
 template <int D> inline Bitboard shift(Bitboard b);
 template <> inline Bitboard shift<8>(Bitboard b) { return b << 8; }            // North
 template <> inline Bitboard shift<-8>(Bitboard b) { return b >> 8; }           // South
@@ -41,18 +37,14 @@ template <> inline Bitboard shift<7>(Bitboard b) { return (b & ~FILE_A_BB) << 7;
 template <> inline Bitboard shift<-7>(Bitboard b) { return (b & ~FILE_H_BB) >> 7; }  // SE
 template <> inline Bitboard shift<-9>(Bitboard b) { return (b & ~FILE_A_BB) >> 9; }  // SW
 
-// Pawn attacks for a whole bitboard of pawns of color c.
 template <Color C> inline Bitboard pawn_attacks_bb(Bitboard pawns) {
     return C == WHITE ? shift<7>(pawns) | shift<9>(pawns)
                       : shift<-7>(pawns) | shift<-9>(pawns);
 }
 
-// Attack tables, filled by Bitboards::init().
 extern Bitboard PawnAttacks[COLOR_NB][SQUARE_NB];
 extern Bitboard KnightAttacks[SQUARE_NB];
 extern Bitboard KingAttacks[SQUARE_NB];
-extern Bitboard BetweenBB[SQUARE_NB][SQUARE_NB]; // squares strictly between (incl. none if not aligned)
-extern Bitboard LineBB[SQUARE_NB][SQUARE_NB];    // full line through two aligned squares
 
 struct Magic {
     Bitboard mask;
@@ -79,7 +71,6 @@ inline Bitboard queen_attacks(Square s, Bitboard occ) {
     return bishop_attacks(s, occ) | rook_attacks(s, occ);
 }
 
-// Generic attacks by piece type (non-pawn).
 inline Bitboard attacks_bb(PieceType pt, Square s, Bitboard occ) {
     switch (pt) {
         case KNIGHT: return KnightAttacks[s];
@@ -93,7 +84,7 @@ inline Bitboard attacks_bb(PieceType pt, Square s, Bitboard occ) {
 
 namespace Bitboards {
 void init();
-std::string pretty(Bitboard b); // debug print
+std::string pretty(Bitboard b);
 }
 
 } // namespace ix

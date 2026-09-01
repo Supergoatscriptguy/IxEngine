@@ -4,14 +4,9 @@
 
 namespace ix {
 
-enum Bound : uint8_t {
-    BOUND_NONE = 0,
-    BOUND_UPPER = 1, // fail-low  (value is an upper bound)
-    BOUND_LOWER = 2, // fail-high (value is a lower bound)
-    BOUND_EXACT = 3
-};
+enum Bound : uint8_t { BOUND_NONE = 0, BOUND_UPPER = 1, BOUND_LOWER = 2, BOUND_EXACT = 3 };
 
-// 10-byte entry. Clusters of 3 fit (with padding) into a 32-byte half cache line.
+// 10 bytes; three per 32-byte cluster.
 struct TTEntry {
     uint16_t key16;
     uint16_t move16;
@@ -38,12 +33,12 @@ public:
     uint8_t generation() const { return generation8; }
 
     TTEntry* probe(U64 key, bool& found);
-    int hashfull() const; // permille of entries used (this generation)
+    int hashfull() const;
     void prefetch(U64 key) const;
 
 private:
     static constexpr int CLUSTER_SIZE = 3;
-    static constexpr unsigned GEN_DELTA = 0x4;   // bound uses low 2 bits
+    static constexpr unsigned GEN_DELTA = 0x4;   // low 2 bits hold the bound
     static constexpr unsigned GEN_MASK = 0xFC;
     static constexpr unsigned GEN_CYCLE = 0x100;
 

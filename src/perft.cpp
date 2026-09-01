@@ -4,8 +4,6 @@
 
 namespace ix {
 
-// True if the move just played (now it is ~mover's turn) left the mover's
-// own king in check.
 static inline bool move_was_legal(const Position& pos) {
     Color mover = ~pos.side_to_move();
     return !pos.is_attacked(pos.king_sq(mover), pos.side_to_move());
