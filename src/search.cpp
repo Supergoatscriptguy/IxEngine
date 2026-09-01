@@ -46,6 +46,7 @@ struct SearchStack {
     Move killers[2];
     int staticEval;
     int moveCount;
+    int doubleExt;            // double extensions used on the path so far
     PieceToHist* contSlice;   // contHist[pc][to] of the move played here
     Move pv[MAX_PLY + 1];
 };
@@ -410,7 +411,7 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
 
         // Singular extension / multicut on the TT move.
         int extension = 0;
-        if (!root && !excluded && depth >= 8 && m == ttMove
+        if (!root && !excluded && depth >= 6 && m == ttMove
             && ttValue != VALUE_NONE && std::abs(ttValue) < VALUE_MATE_IN_MAX_PLY
             && (ttBound & BOUND_LOWER) && ttDepth >= depth - 3) {
             int sBeta = ttValue - 2 * depth;
@@ -419,8 +420,11 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
             int sValue = negamax(ss, sBeta - 1, sBeta, sDepth, cutNode);
             ss->excludedMove = MOVE_NONE;
             if (stopFlag) return 0;
-            if (sValue < sBeta)
+            if (sValue < sBeta) {
                 extension = 1;
+                if (!pvNode && sValue < sBeta - 24 && ss->doubleExt < 5)
+                    extension = 2;
+            }
             else if (sBeta >= beta)
                 return sBeta;
             else if (ttValue >= beta)
@@ -449,6 +453,7 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
         if (isQuiet && quietCount < 64) quietsTried[quietCount++] = m;
 
         int newDepth = depth - 1 + extension;
+        (ss + 1)->doubleExt = ss->doubleExt + (extension == 2);
 
         int score;
         if (moveCount == 1) {
@@ -566,6 +571,7 @@ void Thread::search() {
         stack[i].excludedMove = MOVE_NONE;
         stack[i].killers[0] = stack[i].killers[1] = MOVE_NONE;
         stack[i].staticEval = VALUE_NONE;
+        stack[i].doubleExt = 0;
         stack[i].contSlice = nullptr;
         stack[i].pv[0] = MOVE_NONE;
     }
