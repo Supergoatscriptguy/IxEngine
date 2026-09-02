@@ -5,7 +5,7 @@
   "concurrency": 8,
   "hash": 64,
   "ixengine": {
-    "name": "IxEngine 1.0",
+    "name": "IxEngine 1.1",
     "cmd": "bin/ixchess-engine.exe",
     "options": {
       "Threads": 1

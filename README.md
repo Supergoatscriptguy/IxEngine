@@ -28,16 +28,17 @@ on, single thread, 64 MB hash each, TC 15+0.15, 400 games:
 
 | Opponent (anchor) | CCRL | IxEngine score |
 |---|---|---|
-| Cheng4 0.38 | 2906 | 84% |
-| Senpai 1.0 | 2985 | 70% |
-| Inanis 1.6.0 | 3048 | 64% |
-| Bit-Genie 9 | 3098 | 66% |
+| Halogen 10 | 3194 | 56% |
+| Weiss 2.0 | 3265 | 43% |
+| Zahak 10.0 | 3292 | 37% |
+| Alexandria 3.5 | 3321 | 24% |
 
-**IxEngine ≈ 3173 (95% CI ±30)** on the CCRL blitz-equivalent scale — up from 3088
-in two SPRT-gated batches: speed (TT prefetch, LTO/PGO) + singular extensions
-(+27), then time management + countermoves + continuation history (+58). The
-pool is starting to saturate (84% vs the weakest anchor); stronger anchors are
-due before the next milestone.
+**IxEngine ≈ 3198 (95% CI ±24)** on the CCRL blitz-equivalent scale (Sept 2026,
+version 1.1). The scores fall off monotonically as the anchors get stronger, which
+is what a well-placed pool should look like. The first pool (Cheng4 / Senpai /
+Inanis / Bit-Genie, `tools/anchor/anchors-2026-06.json`) had saturated at 84%
+against its weakest member and read 3173 for a weaker build, so numbers from the
+two pools are not directly comparable — the June figure was flattering.
 
 This is a *blitz-anchored approximation*, not a true CCRL 40/40 result: strength
 shifts with time control, and the per-opponent scores aren't perfectly monotonic
