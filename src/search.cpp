@@ -498,7 +498,7 @@ int Thread::negamax(SearchStack* ss, int alpha, int beta, int depth, bool cutNod
                         Move prev = ss->ply > 0 ? (ss - 1)->currentMove : MOVE_NONE;
                         if (prev != MOVE_NONE && prev != MOVE_NULL)
                             counterMove[us][from_sq(prev)][to_sq(prev)] = m;
-                        int bonus = std::min(depth * depth, 1200);
+                        int bonus = std::min(16 * depth * depth + 32 * depth, 1600);
                         auto cont_update = [&](Move mv, int b) {
                             Piece pc = pos.piece_on(from_sq(mv));
                             Square t = to_sq(mv);
