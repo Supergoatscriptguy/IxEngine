@@ -585,7 +585,9 @@ void Thread::search() {
     int stableCnt = 0;
     int prevIterScore = 0;
 
-    for (int depth = 1; depth <= maxDepth; ++depth) {
+    int startDepth = (id > 0 && (id & 1)) ? 2 : 1;
+    int step = (id > 0 && id >= 2) ? 2 : 1;
+    for (int depth = startDepth; depth <= maxDepth; depth += step) {
         if (stopFlag && lastBest != MOVE_NONE) break;
 
         int delta = 18;
@@ -688,7 +690,25 @@ void think() {
     while (limits.infinite && !stopRequested)
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
+    // Vote: each thread backs its move with (score lead) x (depth reached).
     Move best = Threads[0]->rootBestMove;
+    if (Threads.size() > 1 && best != MOVE_NONE) {
+        int minScore = Threads[0]->rootScore;
+        for (auto& t : Threads)
+            if (t->rootBestMove != MOVE_NONE) minScore = std::min(minScore, t->rootScore);
+        Move cand[256]; int64_t votes[256]; int nc = 0;
+        for (auto& t : Threads) {
+            if (t->rootBestMove == MOVE_NONE || t->completedDepth == 0) continue;
+            int64_t v = int64_t(t->rootScore - minScore + 12) * t->completedDepth;
+            int k = 0;
+            while (k < nc && cand[k] != t->rootBestMove) ++k;
+            if (k == nc) { cand[nc] = t->rootBestMove; votes[nc] = 0; ++nc; }
+            votes[k] += v;
+        }
+        int64_t bestVotes = -1;
+        for (int k = 0; k < nc; ++k)
+            if (votes[k] > bestVotes) { bestVotes = votes[k]; best = cand[k]; }
+    }
     if (best == MOVE_NONE) {     // stopped before depth 1 finished
         Move mv[MAX_MOVES];
         int n = generate(Threads[0]->pos, mv, GEN_ALL);
