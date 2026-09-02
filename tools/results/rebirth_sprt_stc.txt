@@ -1,0 +1,8 @@
+# rebirth_sprt_stc.log  (log written 2026-09-01 16:32)
+SPRT  H0:-5.0 vs H1:0.0 Elo  (a=0.05, b=0.05)
+A=c:\Users\micah\Projects\Ixchess\engine\bin\ix-rebirth.exe
+B=c:\Users\micah\Projects\Ixchess\engine\bin\ix-base-3173.exe
+TC=100ms/move  concurrency=14
+...
++820 =2384 -809   Elo +1.0 +/-7   LLR +1.41   (3577s)
+max games reached (inconclusive)

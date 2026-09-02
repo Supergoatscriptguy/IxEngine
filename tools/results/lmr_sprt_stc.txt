@@ -1,0 +1,8 @@
+# lmr_sprt_stc.log  (log written 2026-09-01 18:24)
+SPRT  H0:0.0 vs H1:5.0 Elo  (a=0.05, b=0.05)
+A=c:\Users\micah\Projects\Ixchess\engine\bin\ix-lmr.exe
+B=c:\Users\micah\Projects\Ixchess\engine\bin\ix-embed.exe
+TC=100ms/move  concurrency=14
+...
++140 =461 -218   Elo -33.2 +/-16   LLR -2.82   (728s)
+H0 accepted: not an improvement

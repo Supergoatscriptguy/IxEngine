@@ -1,0 +1,8 @@
+# caphist3_sprt_stc.log  (log written 2026-07-05 23:58)
+SPRT  H0:0.0 vs H1:5.0 Elo  (a=0.05, b=0.05)
+A=c:\Users\micah\Projects\Ixchess\engine\bin\ix-caphist3.exe
+B=c:\Users\micah\Projects\Ixchess\engine\bin\ix-ch2.exe
+TC=100ms/move  concurrency=14
+...
++505 =1328 -584   Elo -11.4 +/-9   LLR -3.09   (2157s)
+H0 accepted: not an improvement

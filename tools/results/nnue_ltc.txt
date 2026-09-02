@@ -1,0 +1,8 @@
+# nnue_ltc.log  (log written 2026-06-23 23:05)
+SPRT  H0:0.0 vs H1:5.0 Elo  (a=0.05, b=0.05)
+A=c:\Users\micah\Projects\Ixchess\engine\bin\ixchess-engine.exe
+B=c:\Users\micah\Projects\Ixchess\engine\bin\ixchess-engine.exe
+TC=8+0.08s  concurrency=14
+...
++153 =82 -42   Elo +147.5 +/-36   LLR +2.89   (559s)
+H1 accepted: A is stronger

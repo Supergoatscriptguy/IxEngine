@@ -1,0 +1,8 @@
+# speed_sprt_100ms.log  (log written 2026-07-03 23:46)
+SPRT  H0:0.0 vs H1:5.0 Elo  (a=0.05, b=0.05)
+A=bin\ix-speed.exe
+B=bin\base-preprefetch.exe
+TC=100ms/move  concurrency=14
+...
++468 =1097 -369   Elo +17.8 +/-10   LLR +2.85   (2034s)
+H1 accepted: A is stronger

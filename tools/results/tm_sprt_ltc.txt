@@ -1,0 +1,8 @@
+# tm_sprt_ltc.log  (log written 2026-07-05 12:03)
+SPRT  H0:0.0 vs H1:5.0 Elo  (a=0.05, b=0.05)
+A=c:\Users\micah\Projects\Ixchess\engine\bin\ix-tm.exe
+B=c:\Users\micah\Projects\Ixchess\engine\bin\ix-se.exe
+TC=8+0.08s  concurrency=14
+...
++589 =1868 -495   Elo +11.1 +/-8   LLR +2.86   (5421s)
+H1 accepted: A is stronger

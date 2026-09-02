@@ -1,0 +1,11 @@
+# train_gen2.log  (log written 2026-06-24 21:46)
+device: cuda  loading ['engine/data/gen1.txt', 'engine/data/gen2.txt'] ...
+93721649 positions in 664s
+epoch  1/20  loss 0.01049  lr 9.94e-04
+epoch  2/20  loss 0.00901  lr 9.76e-04
+epoch  3/20  loss 0.00877  lr 9.46e-04
+epoch  4/20  loss 0.00864  lr 9.05e-04
+epoch 18/20  loss 0.00818  lr 2.45e-05
+epoch 19/20  loss 0.00817  lr 6.16e-06
+epoch 20/20  loss 0.00816  lr 0.00e+00
+wrote engine/bin/ix-gen2.nnue  (803856 bytes)

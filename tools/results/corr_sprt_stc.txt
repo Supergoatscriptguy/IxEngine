@@ -1,0 +1,8 @@
+# corr_sprt_stc.log  (log written 2026-09-01 17:11)
+SPRT  H0:0.0 vs H1:5.0 Elo  (a=0.05, b=0.05)
+A=c:\Users\micah\Projects\Ixchess\engine\bin\ix-corr.exe
+B=c:\Users\micah\Projects\Ixchess\engine\bin\ix-embed.exe
+TC=100ms/move  concurrency=14
+...
++384 =1036 -463   Elo -14.6 +/-11   LLR -2.97   (1741s)
+H0 accepted: not an improvement

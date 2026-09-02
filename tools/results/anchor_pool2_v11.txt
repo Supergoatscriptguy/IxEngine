@@ -1,0 +1,13 @@
+IxEngine CCRL-anchored performance rating  --  20260902-000920  [pool2-v1.1]
+================================================================
+BLITZ-ANCHORED APPROXIMATION (TC 15+0.15) -- NOT a true CCRL 40/40 number.
+Conditions: NNUE on, 1 thread, 64MB hash, ponder off, no TB, <=6-ply book.
+  IxEngine:  3198   95% CI [3174, 3222]  (+/-24)
+  overall score: 40.2%  over 400 games  (44 min)
+  gap to ~3300 (CCRL 40/40 top-100 territory): +102
+Per-opponent (IxEngine W-D-L), anchors held FIXED:
+  Halogen 10               CCRL 3194   +33 =47 -20   (56%)
+  Weiss 2.0                CCRL 3265   +21 =44 -35   (43%)
+  Zahak 10.0               CCRL 3292   +11 =52 -37   (37%)
+  Alexandria 3.5           CCRL 3321   +6 =37 -57   (24%)
+wrote runs/20260902-000920_pool2-v1.1.txt , .pgn  and appended history.csv

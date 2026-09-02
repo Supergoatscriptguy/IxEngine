@@ -1,0 +1,8 @@
+# smp_sprt_stc.log  (log written 2026-09-01 20:41)
+SPRT  H0:0.0 vs H1:5.0 Elo  (a=0.05, b=0.05)
+A=c:\Users\micah\Projects\Ixchess\engine\bin\ix-smp.exe
+B=c:\Users\micah\Projects\Ixchess\engine\bin\ix-se2.exe
+TC=100ms/move  concurrency=5
+...
++342 =1035 -254   Elo +18.8 +/-10   LLR +3.03   (3907s)
+H1 accepted: A is stronger

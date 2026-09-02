@@ -1,0 +1,8 @@
+# klmr2_sprt_stc.log  (log written 2026-09-01 21:41)
+SPRT  H0:0.0 vs H1:5.0 Elo  (a=0.05, b=0.05)
+A=c:\Users\micah\Projects\Ixchess\engine\bin\ix-klmr2.exe
+B=c:\Users\micah\Projects\Ixchess\engine\bin\ix-hist.exe
+TC=100ms/move  concurrency=14
+...
+  g2696  +546 =1611 -539  LLR -0.44 [-2.94,2.94]  Elo +1 +/-8
+

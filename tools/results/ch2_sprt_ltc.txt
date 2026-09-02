@@ -1,0 +1,8 @@
+# ch2_sprt_ltc.log  (log written 2026-07-05 22:19)
+SPRT  H0:0.0 vs H1:5.0 Elo  (a=0.05, b=0.05)
+A=c:\Users\micah\Projects\Ixchess\engine\bin\ix-ch2.exe
+B=c:\Users\micah\Projects\Ixchess\engine\bin\ix-cm.exe
+TC=8+0.08s  concurrency=14
+...
++240 =735 -159   Elo +24.9 +/-12   LLR +3.02   (2086s)
+H1 accepted: A is stronger

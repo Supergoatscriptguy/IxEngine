@@ -1,0 +1,8 @@
+# hist_sprt_stc.log  (log written 2026-09-01 20:47)
+SPRT  H0:0.0 vs H1:5.0 Elo  (a=0.05, b=0.05)
+A=c:\Users\micah\Projects\Ixchess\engine\bin\ix-hist.exe
+B=c:\Users\micah\Projects\Ixchess\engine\bin\ix-se2.exe
+TC=100ms/move  concurrency=14
+...
++122 =231 -40   Elo +73.6 +/-22   LLR +3.09   (354s)
+H1 accepted: A is stronger

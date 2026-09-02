@@ -1,0 +1,11 @@
+# datagen.log  (log written 2026-06-23 17:17)
+datagen: 18 workers x 666 games @ 3000 nodes/move
+python : game 20/666  positions 1343  (463 pos/s)
+At line:2 char:1
++ python -u engine/tools/datagen.py --out engine/data/gen1.txt --games  ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (game 20/666  po... pos/s)        :String) [], RemoteException
+game 600/666  positions 46669  (457 pos/s)
+game 600/666  positions 46202  (453 pos/s)
+game 600/666  positions 46197  (452 pos/s)
+game 600/666  positions 46549  (455 pos/s)

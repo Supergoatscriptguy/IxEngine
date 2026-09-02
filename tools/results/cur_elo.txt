@@ -1,0 +1,11 @@
+# cur_elo.log  (log written 2026-06-23 16:12)
+Engine: IxEngine 1.0 (4 thread(s))
+Opponent: Stockfish @ UCI_Elo 3000, 100 ms/move, 40 games
+  game   1/40 [W] -  running: +0 =0 -1  (0%)
+  game   2/40 [B] =  running: +0 =1 -1  (25%)
+  game   3/40 [W] =  running: +0 =2 -1  (33%)
+  game   4/40 [B] =  running: +0 =3 -1  (38%)
+  game  40/40 [B] -  running: +0 =21 -19  (26%)
+Result vs SF 3000:  +0 =21 -19   score 26.2%
+Estimated performance Elo: ~2821
+(40 games in 585.2s)

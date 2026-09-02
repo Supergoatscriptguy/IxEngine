@@ -1,0 +1,8 @@
+# effort_sprt_stc.log  (log written 2026-09-01 19:35)
+SPRT  H0:0.0 vs H1:5.0 Elo  (a=0.05, b=0.05)
+A=c:\Users\micah\Projects\Ixchess\engine\bin\ix-se-effort.exe
+B=c:\Users\micah\Projects\Ixchess\engine\bin\ix-se2.exe
+TC=5+0.05s  concurrency=14
+...
++196 =825 -258   Elo -16.9 +/-11   LLR -2.91   (1409s)
+H0 accepted: not an improvement

@@ -1,0 +1,8 @@
+# ss2_sprt_stc.log  (log written 2026-09-02 00:50)
+SPRT  H0:0.0 vs H1:5.0 Elo  (a=0.05, b=0.05)
+A=c:\Users\micah\Projects\Ixchess\engine\bin\ix-ss2.exe
+B=c:\Users\micah\Projects\Ixchess\engine\bin\ix-hist.exe
+TC=100ms/move  concurrency=14
+...
+  g2790  +567 =1676 -547  LLR -0.00 [-2.94,2.94]  Elo +2 +/-8
+

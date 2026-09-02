@@ -1,0 +1,8 @@
+# gen2_vs_hce.log  (log written 2026-06-24 22:16)
+SPRT  H0:0.0 vs H1:5.0 Elo  (a=0.05, b=0.05)
+A=c:\Users\micah\Projects\Ixchess\engine\bin\ixchess-engine.exe
+B=c:\Users\micah\Projects\Ixchess\engine\bin\ixchess-engine.exe
+TC=100ms/move  concurrency=14
+...
++117 =32 -18   Elo +236.9 +/-55   LLR +3.08   (162s)
+H1 accepted: A is stronger

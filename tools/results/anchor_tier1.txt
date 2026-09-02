@@ -1,0 +1,13 @@
+IxEngine CCRL-anchored performance rating  --  20260706-005306  [tier1]
+================================================================
+BLITZ-ANCHORED APPROXIMATION (TC 15+0.15) -- NOT a true CCRL 40/40 number.
+Conditions: NNUE on, 1 thread, 64MB hash, ponder off, no TB, <=6-ply book.
+  IxEngine:  3173   95% CI [3144, 3204]  (+/-30)
+  overall score: 71.2%  over 400 games  (43 min)
+  gap to ~3300 (CCRL 40/40 top-100 territory): +127
+Per-opponent (IxEngine W-D-L), anchors held FIXED:
+  Cheng4 0.38              CCRL 2906   +73 =22 -5   (84%)
+  Senpai 1.0               CCRL 2985   +52 =37 -11   (70%)
+  Inanis 1.6.0             CCRL 3048   +45 =38 -17   (64%)
+  Bit-Genie 9              CCRL 3098   +52 =29 -19   (66%)
+wrote runs/20260706-005306_tier1.txt , .pgn  and appended history.csv

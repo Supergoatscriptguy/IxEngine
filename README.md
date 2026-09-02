@@ -1,189 +1,131 @@
 # IxEngine
 
-A classical (alpha-beta) chess engine in C++17 — bitboards, PVS, a transposition
-table, Lazy SMP, and an NNUE evaluation trained on its own self-play (the hand-tuned
-eval is still there behind an option). It speaks UCI, so any GUI or script that
-drives Stockfish drives it too.
+A chess engine written from scratch in C++17. Bitboards, alpha-beta with the usual
+modern pruning, a transposition table, Lazy SMP, and an NNUE evaluation trained
+entirely on its own self-play games. It talks UCI, so anything that can run
+Stockfish can run this.
 
-## Strength
+Current version: **1.1**. Roughly **3200 on the CCRL blitz scale** (details below).
 
-Two evaluations: the **NNUE net compiled into the binary** (default) and the
-hand-crafted one (`EvalFile <empty>`). The NNUE is **bootstrapped over self-play
-generations** — each net generates better data, which trains a stronger net. SPRT
-vs the hand eval (self-play, 1 thread, 100 ms):
+## How strong
 
-| NNUE gen2 vs hand eval | Elo |
-|---|---|
-| 100 ms | **+237 ±55** |
-| 8+0.08 (long TC) | **+332 ±89** |
+The engine plays a 400-game gauntlet against four open-source engines with known
+CCRL ratings. Their ratings are held fixed and IxEngine's is solved for
+(`tools/anchor/`). One thread, 64 MB hash, 15+0.15, September 2026:
 
-gen2 (93M positions) is **+177** over gen1 (23M) — one bootstrap generation nearly
-doubled the edge, and NNUE gains *more* at long TC.
-
-### Where it sits on the CCRL scale
-
-Played against four open-source engines with published CCRL ratings, held as fixed
-anchors — the rig in [tools/anchor/](tools/anchor/) solves for IxEngine only. NNUE
-on, single thread, 64 MB hash each, TC 15+0.15, 400 games:
-
-| Opponent (anchor) | CCRL | IxEngine score |
+| Opponent | CCRL 40/15 | Score |
 |---|---|---|
 | Halogen 10 | 3194 | 56% |
 | Weiss 2.0 | 3265 | 43% |
 | Zahak 10.0 | 3292 | 37% |
 | Alexandria 3.5 | 3321 | 24% |
 
-**IxEngine ≈ 3198 (95% CI ±24)** on the CCRL blitz-equivalent scale (Sept 2026,
-version 1.1). The scores fall off monotonically as the anchors get stronger, which
-is what a well-placed pool should look like. The first pool (Cheng4 / Senpai /
-Inanis / Bit-Genie, `tools/anchor/anchors-2026-06.json`) had saturated at 84%
-against its weakest member and read 3173 for a weaker build, so numbers from the
-two pools are not directly comparable — the June figure was flattering.
+**IxEngine ≈ 3198, 95% CI 3174–3222.**
 
-This is a *blitz-anchored approximation*, not a true CCRL 40/40 result: strength
-shifts with time control, and the per-opponent scores aren't perfectly monotonic
-(Senpai punches above its slow-TC rating at this speed), so read it as "competitive
-with listed ~3000–3100 engines at blitz," not a guaranteed 40/40 number. Re-measure
-any build with `run_anchor.bat`. SMP adds roughly +20 (blitz) / +200 (long TC) on
-top, measured by self-play SPRT.
+That is a blitz approximation of the CCRL scale, not an actual CCRL listing.
+Strength shifts with the time control, and this pool only covers one region of the
+list. Earlier runs used a weaker pool (Cheng4, Senpai, Inanis, Bit-Genie) and read
+3088 → 3115 → 3173 as the engine improved through the summer, but that pool had
+saturated by the end and those numbers are not comparable to this one.
 
-## Features
+The net is worth about +240 over the hand-written eval at 100 ms and more at
+longer time controls. Everything, including every failed experiment, is in
+[TESTING.md](TESTING.md).
 
-- Bitboard board with **fancy magic bitboards** for sliders (no BMI2 needed).
-- **Zobrist hashing** + a clustered, aging **transposition table**.
-- Search: iterative deepening, **PVS**, aspiration windows, **quiescence** (SEE +
-  delta pruning), **null-move pruning**, **LMR**, reverse-futility / late-move /
-  SEE pruning, check extensions, **singular extensions + multicut**, mate-distance
-  pruning.
-- Move ordering: TT move → MVV-LVA + SEE captures → killers → countermove →
-  butterfly + 1/2-ply continuation history.
-- Time management: soft limit scaled by best-move stability and score trend.
-- **Lazy SMP** multithreading over a shared TT (the `Threads` option).
-- Hand-tuned eval: tapered PeSTO piece-square tables, mobility, king safety (ring
-  attacks + pawn shelter), pawn structure (doubled / isolated / passed), bishop
-  pair, rooks on open/semi-open files and the 7th.
-- Move generation is perft-verified on the six standard positions.
-- **NNUE evaluation** (`768→512` perspective, SCReLU, 8 buckets) with incremental
-  accumulators + AVX2 — trained by the included PyTorch pipeline and embedded in
-  the exe at build time.
+## What's in it
 
-## Modes
+**Board:** bitboards with fancy magic sliders (no BMI2 needed), Zobrist hashing,
+perft-verified move generation.
 
-All three are the *same binary*, selected by UCI options (and by a dropdown in the
-web UI):
+**Search:** iterative deepening, principal variation search, aspiration windows,
+quiescence with SEE and delta pruning, null move, reverse futility, late move
+pruning, SEE pruning, late move reductions, singular extensions with multicut and
+double extensions, check extensions, mate-distance pruning. Move ordering is
+TT move, captures by MVV-LVA and SEE, killers, countermove, then butterfly plus
+one- and two-ply continuation history.
 
-| Mode | Settings |
-|---|---|
-| **Baseline** | `Threads 1`, `EvalFile <empty>` (hand-crafted eval) |
-| **Upgraded** | `Threads N`, `EvalFile <empty>` (Lazy SMP) |
-| **Maxxed** | embedded NNUE + `Threads N` (the default) |
+**Time management:** the soft limit scales with how stable the best move has been
+and whether the score just dropped.
 
-## Build (Windows / MSVC)
+**Threads:** Lazy SMP over a shared table. Helpers stagger their depths and the
+final move is a depth- and score-weighted vote across threads.
+
+**Evaluation:** a 768→512 perspective NNUE (SCReLU, eight piece-count buckets,
+int16, AVX2) compiled into the binary. It was bootstrapped over two self-play
+generations: gen1 was labelled by the hand eval, gen2 by the gen1 net. The
+hand-written eval (tapered PeSTO tables, mobility, king safety, pawn structure) is
+still there behind `EvalFile <empty>`.
+
+## Building
+
+Windows, MSVC 2022, CMake 3.15+, Python (used at build time to embed the net):
 
 ```bat
-build.bat
+build.bat        # normal build
+build_pgo.bat    # profile-guided build, what the numbers above were measured with
 ```
 
-Finds `vcvars64.bat`, runs CMake (NMake, Release), writes `bin\ixchess-engine.exe`.
-Python is needed at build time to embed the net (`tools/embed_net.py`).
-By hand from a Developer Command Prompt:
+Both find `vcvars64.bat` on their own and leave `bin\ixchess-engine.exe`. Other
+compilers work too — the CMake file only adds AVX2 flags on x86:
 
-```bat
-cmake -S . -B build -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release
+```
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-MinGW/Clang also work (`-O3 -mpopcnt` off MSVC). CMake ≥ 3.15.
-
 ## UCI options
 
-| Option | Type | Default | Notes |
-|---|---|---|---|
-| `Hash` | spin | 64 | TT size in MB. |
-| `Threads` | spin | 1 | Search threads (Lazy SMP). Big gains at longer TC. |
-| `Move Overhead` | spin | 25 | ms shaved off the clock for safety. |
-| `UCI_LimitStrength` | check | false | Weaken the engine. |
-| `UCI_Elo` | spin | 2850 | Target when limiting (1320–3000). |
-| `EvalFile` | string | `<embedded>` | `<embedded>` = built-in net, `<empty>` = hand eval, or a path to another `.nnue`. |
+| Option | Default | |
+|---|---|---|
+| `Hash` | 64 | table size in MB |
+| `Threads` | 1 | search threads |
+| `Move Overhead` | 25 | ms kept back from the clock |
+| `EvalFile` | `<embedded>` | `<embedded>` for the built-in net, `<empty>` for the hand eval, or a path to another `.nnue` of the same shape |
+| `UCI_LimitStrength` / `UCI_Elo` | off / 2850 | a plain depth cap, fine for a sparring partner |
 
-`go` understands `movetime`, `wtime/btime/winc/binc/movestogo`, `depth`, `nodes`,
-and `infinite` (+ `stop`).
+`go` understands `movetime`, `wtime/btime/winc/binc/movestogo`, `depth`, `nodes`
+and `infinite`. On the prompt, `d` prints the board, `bench` and `perft N` do what
+you'd expect.
 
-## Play against it
+## Playing it
 
-Browser UI — clickable board, eval bar, move list, last-move arrows (front-end is
-AI-generated):
+The browser UI has a clickable board, eval bar and move list (the front-end was
+generated with AI):
 
-```bash
+```
 pip install flask python-chess
-python tools/webui/server.py          # then open http://127.0.0.1:5000
+python tools/webui/server.py      # http://127.0.0.1:5000
 ```
 
-Terminal:
+Or in a terminal: `python tools/play.py --color white --movetime 1000`.
 
-```bash
-python tools/play.py --color white --movetime 1000   # moves as e2e4 or Nf3
+## Testing
+
+Nothing goes in without a self-play SPRT at both 100 ms/move and 8+0.08 (see
+`tools/sprt.py`), and the anchor gauntlet is re-run after a batch of changes.
+Speed-only changes are checked by identical `bench` node counts and measured NPS
+instead. The full record — every pass, every fail, the anchor runs, the training
+runs — is in [TESTING.md](TESTING.md), with per-run summaries in
+`tools/results/`. Ideas that are queued or already tried are in
+[IMPROVEMENTS.md](IMPROVEMENTS.md).
+
 ```
-
-Quick CLI checks:
-
-```bat
-echo uci | bin\ixchess-engine.exe
-bin\ixchess-engine.exe perft 5 "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-bin\ixchess-engine.exe bench
-```
-
-On the UCI prompt: `d` (print board), `eval`, `perft N`.
-
-## Development & testing
-
-Every engine change is validated by self-play SPRT before it's kept — that's how
-SMP was confirmed (+207 at 3+0.03) and how two eval/ordering experiments were
-correctly rejected.
-
-```bash
-# A vs B with sequential probability ratio test (GSPRT, opening book, concurrency)
-python tools/sprt.py --a bin/new.exe --b bin/base.exe --tc 5+0.05 --concurrency 12
-
-# straight head-to-head Elo between two builds
-python tools/selfplay.py --a bin/new.exe --b bin/base.exe --games 100 --movetime 100
-
-# vs Stockfish at a target Elo
-python tools/match.py --elo 2800 --games 40 --movetime 100 --threads 4 --stockfish <path>
-```
-
-Test new changes at **both 100 ms and ~3 s**, since some gains (e.g. SMP) only show
-at longer TC.
-
-To place a build on the **CCRL scale**, the anchor rig plays it against engines
-with known CCRL ratings (held fixed) and solves for IxEngine, with a bootstrap CI:
-
-```bash
-run_anchor.bat                                   # or: python tools/anchor/run_anchor.py
-python tools/anchor/run_anchor.py --tag gen3     # label a run; logs to history.csv
+python tools/sprt.py --a bin/new.exe --b bin/base.exe --movetime 100 --concurrency 14
+python tools/sprt.py --a bin/new.exe --b bin/base.exe --tc 8+0.08 --concurrency 14
+python tools/anchor/run_anchor.py --tag whatever
 ```
 
 ## Layout
 
 ```
-src/
-  types.h        enums, move encoding, bit ops
-  bitboard.*     masks, leaper tables, magic sliders
-  zobrist.*      hash keys
-  position.*     board state, FEN, make/unmake, attacks, SEE
-  movegen.*      pseudo-legal generation
-  perft.*        move-gen validation
-  tt.*           transposition table
-  eval.*         hand-tuned evaluation
-  search.*       PVS + iterative deepening + Lazy SMP
-  main.cpp       UCI front-end
+src/            the engine (types, bitboard, zobrist, position, movegen, tt, eval, nnue, search, main)
+nets/           trained nets; ix-gen2.nnue is the one that gets embedded
 tools/
-  play.py        terminal human-vs-engine
-  webui/         browser UI (server.py + index.html)
-  match.py       vs Stockfish
-  sprt.py        SPRT A/B tester
-  selfplay.py    head-to-head Elo between two builds
-  anchor/        CCRL-anchored rating rig (run_anchor.py + solve.py)
+  sprt.py       A/B testing
+  anchor/       CCRL-anchored rating gauntlet
+  results/      one summary file per test run
+  datagen.py    self-play data generation
+  train_nnue.py PyTorch trainer, quantised export
+  embed_net.py  turns a .nnue into a C++ array at build time
+  webui/, play.py, match.py, selfplay.py, modes_elo.py
 ```
-
-See [IMPROVEMENTS.md](IMPROVEMENTS.md) for what is next and what has already been tried and dropped.

@@ -1,0 +1,8 @@
+# probcut_sprt_stc.log  (log written 2026-09-01 18:11)
+SPRT  H0:0.0 vs H1:5.0 Elo  (a=0.05, b=0.05)
+A=c:\Users\micah\Projects\Ixchess\engine\bin\ix-probcut.exe
+B=c:\Users\micah\Projects\Ixchess\engine\bin\ix-embed.exe
+TC=100ms/move  concurrency=14
+...
++860 =2303 -850   Elo +0.9 +/-7   LLR -0.64   (3565s)
+max games reached (inconclusive)
